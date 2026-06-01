@@ -460,19 +460,18 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of httpswww.toptal.comdevelopersgitignoreapiwindows,nextjs,visualstudio
-# Bỏ qua thư viện thư viện nặng
 node_modules/
 npm-debug.log
 
-# Bỏ qua thư mục build của TypeScript
+
 dist/
 build/
 
-# BẢO MẬT: Bỏ qua biến môi trường chứa mật khẩu
+
 .env
 .env.*
 
-# Bỏ qua các file rác của hệ điều hành và Editor
+
 .vscode/
 .DS_Store
 Thumbs.db
