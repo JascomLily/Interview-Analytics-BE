@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { getUsers, createUser, deleteUser } from "../controllers/user.controller";
+import { getUsers, deleteUser } from "../controllers/user.controller";
+import { authenticate, authorize } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// Định nghĩa các endpoint
-router.get("/", getUsers);
-router.post("/", createUser);
-router.delete("/:id", deleteUser);
-// (Phần update và getById nhóm mình sẽ thêm sau nếu cần)
+router.use(authenticate);
+
+router.get("/", authorize("HR"), getUsers);
+router.delete("/:id", authorize("HR"), deleteUser);
 
 export default router;

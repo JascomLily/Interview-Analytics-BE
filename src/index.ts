@@ -1,32 +1,34 @@
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
-import path from "path"; 
+import http from "http";
+import path from "path";
+import { env } from "./config/env";
 import { connectDB } from "./config/db";
+import { initializeSocket } from "./config/socket";
+import authRoutes from "./routes/auth.route";
 import userRoutes from "./routes/user.route";
 import questionRoutes from "./routes/question.route";
 import sessionRoutes from "./routes/session.route";
-import recordingRoutes from "./routes/recording.route"; 
-
-dotenv.config();
+import recordingRoutes from "./routes/recording.route";
+import "./types";
 
 const app = express();
+const server = http.createServer(app);
 
-app.use(cors());
+app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
 app.use(express.json());
-
-
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads"))); 
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 connectDB();
 
+initializeSocket(server);
 
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/recordings", recordingRoutes);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server Backend đang chạy tại http://localhost:${PORT}`);
+server.listen(env.PORT, () => {
+  console.log(`Server running at http://localhost:${env.PORT}`);
 });
