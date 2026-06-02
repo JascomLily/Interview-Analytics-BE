@@ -5,6 +5,9 @@ export interface IRecording extends Document {
     user_role: string;                   // 'HR' hoặc 'CANDIDATE' (Phục vụ Dual-track)
     file_url: string;                    // Đường dẫn để nghe lại file
     file_name: string;                   // Tên file gốc
+    transcript?: string;                 // Văn bản bóc băng
+    status: string;                      // Trạng thái bóc băng: PENDING, COMPLETED, FAILED
+    duration?: number;                   // Thời lượng file (giây)
 }
 
 const RecordingSchema = new Schema(
@@ -13,6 +16,9 @@ const RecordingSchema = new Schema(
         user_role: { type: String, enum: ["HR", "CANDIDATE"], required: true },
         file_url: { type: String, required: true },
         file_name: { type: String, required: true },
+        transcript: { type: String, default: "" },
+        status: { type: String, enum: ["PENDING", "COMPLETED", "FAILED"], default: "PENDING" },
+        duration: { type: Number, default: 0 },
     },
     { timestamps: true }
 );

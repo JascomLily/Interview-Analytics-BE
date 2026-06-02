@@ -10,6 +10,8 @@ export const env = {
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+  PYTHON_STT_URL: process.env.PYTHON_STT_URL || "http://localhost:8001",
 };
 
 const requiredVars = ["MONGODB_URI", "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"] as const;

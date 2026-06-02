@@ -5,6 +5,7 @@ export interface IQuestion extends Document {
     expected_answer: string;  // Câu trả lời chuẩn (dùng để AI so sánh Vector)
     domain: string;           // Lĩnh vực (VD: Frontend, Backend, Soft Skills)
     keywords: string[];       // Các từ khóa bắt buộc ứng viên phải nhắc đến
+    embedding?: number[];     // Vector embedding của expected_answer
 }
 
 const QuestionSchema = new Schema(
@@ -13,6 +14,7 @@ const QuestionSchema = new Schema(
         expected_answer: { type: String, required: true },
         domain: { type: String, default: "General" },
         keywords: [{ type: String }], // Mảng các chuỗi (strings)
+        embedding: { type: [Number], default: [] },
     },
     { timestamps: true }
 );
