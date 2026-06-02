@@ -4,8 +4,7 @@ import Question from "../models/question.model";
 // 1. Lấy danh sách câu hỏi (có lọc theo domain nếu cần)
 export const getQuestions = async (req: Request, res: Response) => {
     try {
-        const { domain } = req.query;
-        // Nếu có truyền domain thì lọc, không thì lấy hết
+        const domain = req.query.domain as string | undefined;
         const filter = domain ? { domain } : {};
 
         const questions = await Question.find(filter).sort({ createdAt: -1 });

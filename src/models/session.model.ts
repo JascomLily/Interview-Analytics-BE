@@ -27,14 +27,13 @@ const SessionSchema = new Schema(
     { timestamps: true }
 );
 
-// Format lại ID khi trả về FE
 SessionSchema.set("toJSON", {
-    virtuals: true,
-    transform: (doc, ret) => {
-        ret.id = ret._id;
-        delete ret._id;
-        delete ret.__v;
-    },
+  virtuals: true,
+  transform: (_doc, ret: Record<string, unknown>) => {
+    ret.id = ret._id;
+    delete ret._id;
+    delete ret.__v;
+  },
 });
 
 export default mongoose.model<ISession>("Session", SessionSchema);
