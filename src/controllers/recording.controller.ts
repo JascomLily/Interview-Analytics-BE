@@ -24,25 +24,32 @@ export const uploadAudio = async (req: Request, res: Response) => {
       transcript: "",
     });
 
-    console.log(`[UploadAudio] Đã lưu file ghi âm thành công: ${req.file.filename}. Bắt đầu bóc băng STT...`);
+    console.log(`[UploadAudio] Đã lưu file ghi âm thành công: ${req.file.filename}. Bắt đầu bóc băng STT ngầm...`);
 
-    // Thực hiện Speech-to-Text
-    try {
-      const transcript = await SttService.transcribe(req.file.path, req.file.mimetype);
-      
-      newRecording.transcript = transcript;
-      newRecording.status = "COMPLETED";
-      await newRecording.save();
-      
-      console.log("[UploadAudio] Bóc băng STT hoàn tất.");
-    } catch (sttError: any) {
-      console.error(`[UploadAudio] Lỗi bóc băng STT: ${sttError.message}`);
-      newRecording.status = "FAILED";
-      await newRecording.save();
-    }
+    // Thực hiện Speech-to-Text chạy ngầm (Asynchronous) để không block HTTP request
+    (async () => {
+      try {
+        const file_path = req.file?.path as string;
+        const mime_type = req.file?.mimetype as string;
+        const file_name = req.file?.filename as string;
+        
+        const transcript = await SttService.transcribe(file_path, mime_type);
+        
+        newRecording.transcript = transcript;
+        newRecording.status = "COMPLETED";
+        await newRecording.save();
+        
+        console.log(`[UploadAudio] Bóc băng STT hoàn tất cho file: ${file_name}`);
+      } catch (sttError: any) {
+        console.error(`[UploadAudio] Lỗi bóc băng STT: ${sttError.message}`);
+        newRecording.status = "FAILED";
+        await newRecording.save();
+      }
+    })();
 
+    // Trả về response ngay lập tức để không bị Timeout
     res.status(201).json({ 
-      message: "Upload và xử lý âm thanh thành công", 
+      message: "Upload âm thanh thành công, đang xử lý bóc băng ngầm", 
       data: newRecording 
     });
   } catch (error) {

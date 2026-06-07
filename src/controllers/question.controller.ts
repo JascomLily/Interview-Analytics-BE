@@ -73,24 +73,24 @@ export const importQuestionsFromPDF = async (req: Request, res: Response) => {
         const parsedQuestions = await GeminiService.parseQuestionPDF(fileBuffer);
         console.log(`[Question] Trích xuất thành công ${parsedQuestions.length} câu hỏi.`);
 
-        // Tạo embedding song song cho tất cả các câu trả lời mẫu được trích xuất
-        const questionsToSave = await Promise.all(
-            parsedQuestions.map(async (q: any) => {
-                let embedding: number[] = [];
-                try {
-                    embedding = await GeminiService.generateEmbedding(q.expected_answer);
-                } catch (err: any) {
-                    console.warn(`[Question] Không tạo được embedding cho câu hỏi: "${q.content.substring(0, 30)}...": ${err.message}`);
-                }
-                return {
-                    content: q.content,
-                    expected_answer: q.expected_answer,
-                    domain: q.domain || "General",
-                    keywords: q.keywords || [],
-                    embedding,
-                };
-            })
-        );
+        // Tạo embedding tuần tự cho tất cả các câu trả lời mẫu để tránh lỗi Rate Limit của Gemini
+        const questionsToSave = [];
+        for (const q of parsedQuestions) {
+            let embedding: number[] = [];
+            try {
+                // Tạo embedding tuần tự, giảm thiểu rủi ro bị block
+                embedding = await GeminiService.generateEmbedding(q.expected_answer);
+            } catch (err: any) {
+                console.warn(`[Question] Không tạo được embedding cho câu hỏi: "${q.content.substring(0, 30)}...": ${err.message}`);
+            }
+            questionsToSave.push({
+                content: q.content,
+                expected_answer: q.expected_answer,
+                domain: q.domain || "General",
+                keywords: q.keywords || [],
+                embedding,
+            });
+        }
 
         const savedQuestions = await Question.insertMany(questionsToSave);
 
