@@ -1,4 +1,3 @@
-
 export interface JwtPayload {
     id: string;
     role: string;
@@ -14,12 +13,7 @@ export interface RoomParticipant {
 declare global {
     namespace Express {
         interface Request {
-            
-            user?: {
-                id: string;
-                role_id: string; 
-                roleName?: string;
-            };
+            user?: JwtPayload;
         }
     }
 }
