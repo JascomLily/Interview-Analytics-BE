@@ -3,7 +3,9 @@ import { Server, Socket } from "socket.io";
 import { env } from "./env";
 import { verifyAccessToken } from "../utils/jwt.utils";
 import { JwtPayload, RoomParticipant } from "../types";
-import Session from "../models/session.model";
+import InterviewSession from "../models/interview-session.model";
+import http from "http";
+import { processAudioChunk } from "../services/transcription.service";
 
 const rooms = new Map<string, RoomParticipant[]>();
 
@@ -63,14 +65,15 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
     }
   });
 
-  io.on("connection", (socket: Socket) => {
+    io.on("connection", (socket: Socket) => {
+
     const user: JwtPayload = socket.data.user;
 
     socket.on("room:join", async (data: { roomCode: string }) => {
       try {
         const { roomCode } = data;
 
-        const session = await Session.findOne({ room_code: roomCode });
+          const session = await InterviewSession.findOne({ room_code: roomCode });
         if (!session) {
           return socket.emit("room:error", { message: "Interview room not found" });
         }
@@ -149,6 +152,29 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
         changedBy: user.id,
       });
     });
+    socket.on("audio:stream", async (data: { roomCode: string; audioChunk: Buffer; questionId: string }) => {
+            const { roomCode, audioChunk, questionId } = data;
+
+            
+            if (user.role !== "CANDIDATE") {
+                return socket.emit("room:error", { message: "Chỉ ứng viên mới được quyền gửi âm thanh" });
+            }
+
+            try {
+                
+                const chunkText = await processAudioChunk(audioChunk);
+
+                if (chunkText && chunkText.trim().length > 0) {
+                    io.to(roomCode).emit("audio:transcription", {
+                        questionId,
+                        text: chunkText,
+                        userId: user.id
+                    });
+                }
+            } catch (err) {
+                console.error("[Socket Audio Error]", err);
+            }
+        });
 
     socket.on("disconnect", () => {
       const roomCode = findRoomBySocketId(socket.id);

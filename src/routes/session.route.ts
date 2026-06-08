@@ -5,15 +5,16 @@ import {
   getSessionByRoomCode,
   updateSessionStatus,
 } from "../controllers/session.controller";
-import { authenticate, authorize } from "../middlewares/auth.middleware";
+import { verifyToken } from "../middlewares/auth.middleware";
+import { authorizeRoles } from "../middlewares/rbac.middleware";
 
 const router = Router();
 
-router.use(authenticate);
+router.use(verifyToken);
 
 router.get("/", getSessions);
-router.post("/", authorize("HR"), createSession);
+router.post("/", authorizeRoles("HR"), createSession);
 router.get("/room/:room_code", getSessionByRoomCode);
-router.put("/:id/status", authorize("HR"), updateSessionStatus);
+router.put("/:id/status", authorizeRoles("HR"), updateSessionStatus);
 
 export default router;

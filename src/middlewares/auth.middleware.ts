@@ -1,33 +1,28 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../utils/jwt.utils";
+import { JwtPayload } from "../types";
 
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
+export const verifyToken = (req: Request, res: Response, next: NextFunction): void => {
+    try {
+        
+        const authHeader = req.headers.authorization;
+        const token = authHeader?.startsWith("Bearer ")
+            ? authHeader.split(" ")[1]
+            : req.cookies?.token;
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Access token is required" });
-  }
+        if (!token) {
+            res.status(401).json({ message: "Truy cập bị từ chối: Không có token" });
+            return;
+        }
 
-  const token = authHeader.split(" ")[1];
+       
+        const decoded = verifyAccessToken(token) as JwtPayload;
 
-  try {
-    req.user = verifyAccessToken(token);
-    next();
-  } catch {
-    return res.status(401).json({ message: "Invalid or expired access token" });
-  }
-};
+        
+        req.user = decoded;
 
-export const authorize = (...roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
+        next();
+    } catch (error) {
+        res.status(401).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
     }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Insufficient permissions" });
-    }
-
-    next();
-  };
 };
