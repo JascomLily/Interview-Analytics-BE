@@ -468,14 +468,13 @@ dist/
 build/
 
 
-.env
-.env.*
+**/.env
 
 
 .vscode/
 .DS_Store
 Thumbs.db
 
-uploads/
+.uploads/
 
-scripts/
+.scripts/
