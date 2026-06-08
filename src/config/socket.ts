@@ -3,7 +3,7 @@ import { Server, Socket } from "socket.io";
 import { env } from "./env";
 import { verifyAccessToken } from "../utils/jwt.utils";
 import { JwtPayload, RoomParticipant } from "../types";
-import Session from "../models/session.model";
+import InterviewSession from "../models/interview-session.model";
 
 const rooms = new Map<string, RoomParticipant[]>();
 
@@ -70,7 +70,7 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
       try {
         const { roomCode } = data;
 
-        const session = await Session.findOne({ room_code: roomCode });
+          const session = await InterviewSession.findOne({ room_code: roomCode });
         if (!session) {
           return socket.emit("room:error", { message: "Interview room not found" });
         }
