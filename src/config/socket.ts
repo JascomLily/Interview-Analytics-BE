@@ -10,158 +10,158 @@ import { processAudioChunk } from "../services/transcription.service";
 const rooms = new Map<string, RoomParticipant[]>();
 
 const getRoom = (roomCode: string): RoomParticipant[] => {
-    if (!rooms.has(roomCode)) {
-        rooms.set(roomCode, []);
-    }
-    return rooms.get(roomCode)!;
+  if (!rooms.has(roomCode)) {
+    rooms.set(roomCode, []);
+  }
+  return rooms.get(roomCode)!;
 };
 
 const removeParticipant = (roomCode: string, socketId: string): RoomParticipant | undefined => {
-    const participants = rooms.get(roomCode);
-    if (!participants) return undefined;
+  const participants = rooms.get(roomCode);
+  if (!participants) return undefined;
 
-    const index = participants.findIndex((p) => p.socketId === socketId);
-    if (index === -1) return undefined;
+  const index = participants.findIndex((p) => p.socketId === socketId);
+  if (index === -1) return undefined;
 
-    const [removed] = participants.splice(index, 1);
+  const [removed] = participants.splice(index, 1);
 
-    if (participants.length === 0) {
-        rooms.delete(roomCode);
-    }
+  if (participants.length === 0) {
+    rooms.delete(roomCode);
+  }
 
-    return removed;
+  return removed;
 };
 
 const findRoomBySocketId = (socketId: string): string | undefined => {
-    for (const [roomCode, participants] of rooms) {
-        if (participants.some((p) => p.socketId === socketId)) {
-            return roomCode;
-        }
+  for (const [roomCode, participants] of rooms) {
+    if (participants.some((p) => p.socketId === socketId)) {
+      return roomCode;
     }
-    return undefined;
+  }
+  return undefined;
 };
 
 export const initializeSocket = (httpServer: HttpServer): Server => {
-    const io = new Server(httpServer, {
-        cors: {
-            origin: env.CLIENT_URL,
-            methods: ["GET", "POST"],
-        },
-    });
+  const io = new Server(httpServer, {
+    cors: {
+      origin: env.CLIENT_URL,
+      methods: ["GET", "POST"],
+    },
+  });
 
-    io.use((socket, next) => {
-        const token = socket.handshake.auth.token;
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
 
-        if (!token) {
-            return next(new Error("Authentication required"));
-        }
+    if (!token) {
+      return next(new Error("Authentication required"));
+    }
 
-        try {
-            const payload: JwtPayload = verifyAccessToken(token);
-            socket.data.user = payload;
-            next();
-        } catch {
-            next(new Error("Invalid or expired token"));
-        }
-    });
+    try {
+      const payload: JwtPayload = verifyAccessToken(token);
+      socket.data.user = payload;
+      next();
+    } catch {
+      next(new Error("Invalid or expired token"));
+    }
+  });
 
     io.on("connection", (socket: Socket) => {
 
-        const user: JwtPayload = socket.data.user;
+    const user: JwtPayload = socket.data.user;
 
-        socket.on("room:join", async (data: { roomCode: string }) => {
-            try {
-                const { roomCode } = data;
+    socket.on("room:join", async (data: { roomCode: string }) => {
+      try {
+        const { roomCode } = data;
 
-                const session = await InterviewSession.findOne({ room_code: roomCode });
-                if (!session) {
-                    return socket.emit("room:error", { message: "Interview room not found" });
-                }
+          const session = await InterviewSession.findOne({ room_code: roomCode });
+        if (!session) {
+          return socket.emit("room:error", { message: "Interview room not found" });
+        }
 
-                if (session.status === "COMPLETED" || session.status === "CANCELLED") {
-                    return socket.emit("room:error", { message: "This interview session has ended" });
-                }
+        if (session.status === "COMPLETED" || session.status === "CANCELLED") {
+          return socket.emit("room:error", { message: "This interview session has ended" });
+        }
 
-                const participants = getRoom(roomCode);
-                const alreadyJoined = participants.some((p) => p.userId === user.id);
-                if (alreadyJoined) {
-                    return socket.emit("room:error", { message: "Already in this room" });
-                }
+        const participants = getRoom(roomCode);
+        const alreadyJoined = participants.some((p) => p.userId === user.id);
+        if (alreadyJoined) {
+          return socket.emit("room:error", { message: "Already in this room" });
+        }
 
-                socket.join(roomCode);
+        socket.join(roomCode);
 
-                participants.push({
-                    userId: user.id,
-                    socketId: socket.id,
-                    role: user.role,
-                    joinedAt: new Date(),
-                });
-
-                io.to(roomCode).emit("room:user-joined", {
-                    userId: user.id,
-                    role: user.role,
-                    participants: participants.map(({ userId, role }) => ({ userId, role })),
-                });
-            } catch {
-                socket.emit("room:error", { message: "Failed to join room" });
-            }
+        participants.push({
+          userId: user.id,
+          socketId: socket.id,
+          role: user.role,
+          joinedAt: new Date(),
         });
 
-        socket.on("room:leave", (data: { roomCode: string }) => {
-            const { roomCode } = data;
-            handleLeaveRoom(socket, io, roomCode);
+        io.to(roomCode).emit("room:user-joined", {
+          userId: user.id,
+          role: user.role,
+          participants: participants.map(({ userId, role }) => ({ userId, role })),
         });
+      } catch {
+        socket.emit("room:error", { message: "Failed to join room" });
+      }
+    });
 
-        socket.on("recording:start", (data: { roomCode: string; questionId: string }) => {
-            const { roomCode, questionId } = data;
+    socket.on("room:leave", (data: { roomCode: string }) => {
+      const { roomCode } = data;
+      handleLeaveRoom(socket, io, roomCode);
+    });
 
-            if (user.role !== "HR") {
-                return socket.emit("room:error", { message: "Only HR can control recording" });
-            }
+    socket.on("recording:start", (data: { roomCode: string; questionId: string }) => {
+      const { roomCode, questionId } = data;
 
-            io.to(roomCode).emit("recording:started", {
-                questionId,
-                startedBy: user.id,
-                startedAt: new Date().toISOString(),
-            });
-        });
+      if (user.role !== "HR") {
+        return socket.emit("room:error", { message: "Only HR can control recording" });
+      }
 
-        socket.on("recording:stop", (data: { roomCode: string; questionId: string }) => {
-            const { roomCode, questionId } = data;
+      io.to(roomCode).emit("recording:started", {
+        questionId,
+        startedBy: user.id,
+        startedAt: new Date().toISOString(),
+      });
+    });
 
-            if (user.role !== "HR") {
-                return socket.emit("room:error", { message: "Only HR can control recording" });
-            }
+    socket.on("recording:stop", (data: { roomCode: string; questionId: string }) => {
+      const { roomCode, questionId } = data;
 
-            io.to(roomCode).emit("recording:stopped", {
-                questionId,
-                stoppedBy: user.id,
-                stoppedAt: new Date().toISOString(),
-            });
-        });
+      if (user.role !== "HR") {
+        return socket.emit("room:error", { message: "Only HR can control recording" });
+      }
 
-        socket.on("question:next", (data: { roomCode: string; questionIndex: number }) => {
-            const { roomCode, questionIndex } = data;
+      io.to(roomCode).emit("recording:stopped", {
+        questionId,
+        stoppedBy: user.id,
+        stoppedAt: new Date().toISOString(),
+      });
+    });
 
-            if (user.role !== "HR") {
-                return socket.emit("room:error", { message: "Only HR can navigate questions" });
-            }
+    socket.on("question:next", (data: { roomCode: string; questionIndex: number }) => {
+      const { roomCode, questionIndex } = data;
 
-            io.to(roomCode).emit("question:changed", {
-                questionIndex,
-                changedBy: user.id,
-            });
-        });
-        socket.on("audio:stream", async (data: { roomCode: string; audioChunk: Buffer; questionId: string }) => {
+      if (user.role !== "HR") {
+        return socket.emit("room:error", { message: "Only HR can navigate questions" });
+      }
+
+      io.to(roomCode).emit("question:changed", {
+        questionIndex,
+        changedBy: user.id,
+      });
+    });
+    socket.on("audio:stream", async (data: { roomCode: string; audioChunk: Buffer; questionId: string }) => {
             const { roomCode, audioChunk, questionId } = data;
 
-
+            
             if (user.role !== "CANDIDATE") {
                 return socket.emit("room:error", { message: "Chỉ ứng viên mới được quyền gửi âm thanh" });
             }
 
             try {
-
+                
                 const chunkText = await processAudioChunk(audioChunk);
 
                 if (chunkText && chunkText.trim().length > 0) {
@@ -176,28 +176,28 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
             }
         });
 
-        socket.on("disconnect", () => {
-            const roomCode = findRoomBySocketId(socket.id);
-            if (roomCode) {
-                handleLeaveRoom(socket, io, roomCode);
-            }
-        });
+    socket.on("disconnect", () => {
+      const roomCode = findRoomBySocketId(socket.id);
+      if (roomCode) {
+        handleLeaveRoom(socket, io, roomCode);
+      }
     });
+  });
 
-    return io;
+  return io;
 };
 
 const handleLeaveRoom = (socket: Socket, io: Server, roomCode: string) => {
-    const removed = removeParticipant(roomCode, socket.id);
-    if (!removed) return;
+  const removed = removeParticipant(roomCode, socket.id);
+  if (!removed) return;
 
-    socket.leave(roomCode);
+  socket.leave(roomCode);
 
-    const remaining = rooms.get(roomCode) || [];
+  const remaining = rooms.get(roomCode) || [];
 
-    io.to(roomCode).emit("room:user-left", {
-        userId: removed.userId,
-        role: removed.role,
-        participants: remaining.map(({ userId, role }) => ({ userId, role })),
-    });
+  io.to(roomCode).emit("room:user-left", {
+    userId: removed.userId,
+    role: removed.role,
+    participants: remaining.map(({ userId, role }) => ({ userId, role })),
+  });
 };

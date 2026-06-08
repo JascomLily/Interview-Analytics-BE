@@ -4,7 +4,7 @@ import { JwtPayload } from "../types";
 
 export const verifyToken = (req: Request, res: Response, next: NextFunction): void => {
     try {
-        // Ưu tiên lấy token từ header Bearer, nếu không có thì lấy từ cookie
+        
         const authHeader = req.headers.authorization;
         const token = authHeader?.startsWith("Bearer ")
             ? authHeader.split(" ")[1]
@@ -15,10 +15,10 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction): vo
             return;
         }
 
-        // Giải mã và ép kiểu về đúng JwtPayload (chứa id và role)
+       
         const decoded = verifyAccessToken(token) as JwtPayload;
 
-        // Gán vào req.user
+        
         req.user = decoded;
 
         next();

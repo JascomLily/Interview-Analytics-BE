@@ -10,7 +10,7 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
         {
             inlineData: {
                 data: audioBuffer.toString("base64"),
-                mimeType: "audio/webm" // Định dạng phổ biến từ MediaRecorder
+                mimeType: "audio/webm" 
             }
         },
         "Hãy chuyển đoạn âm thanh tiếng Việt này thành văn bản."
