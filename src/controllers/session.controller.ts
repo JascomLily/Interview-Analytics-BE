@@ -11,7 +11,9 @@ import InterviewInvitation from "../models/interview-invitation.model";
 // 1. Lấy danh sách phiên phỏng vấn
 export const getSessions = async (req: Request, res: Response): Promise<void> => {
     try {
-        const sessions = await InterviewSession.find()
+        const filter = req.user?.role === "HR" ? { conductor_id: req.user.id } : {};
+        
+        const sessions = await InterviewSession.find(filter)
             .populate("conductor_id", "name email")
             .populate("job_position_id", "title")
             .populate("candidate_profile_id", "full_name email")

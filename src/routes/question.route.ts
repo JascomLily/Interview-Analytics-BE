@@ -9,6 +9,7 @@ import {
 import { verifyToken} from "../middlewares/auth.middleware";
 import { upload } from "../middlewares/upload.middleware";
 import { authorizeRoles } from "../middlewares/rbac.middleware";
+import { validateObjectId } from "../middlewares/validate-id.middleware";
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.use(verifyToken);
 
 router.get("/", getQuestions);
 router.post("/", authorizeRoles("HR"), createQuestion);
-router.delete("/:id", authorizeRoles("HR"), deleteQuestion);
+router.delete("/:id", validateObjectId, authorizeRoles("HR"), deleteQuestion);
 
 // Import câu hỏi từ PDF (Chỉ HR được phép)
 router.post("/import-pdf", authorizeRoles("HR"), upload.single("file"), importQuestionsFromPDF);

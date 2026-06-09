@@ -7,6 +7,7 @@ import {
 } from "../controllers/session.controller";
 import { verifyToken } from "../middlewares/auth.middleware";
 import { authorizeRoles } from "../middlewares/rbac.middleware";
+import { validateObjectId } from "../middlewares/validate-id.middleware";
 
 const router = Router();
 
@@ -15,6 +16,6 @@ router.use(verifyToken);
 router.get("/", getSessions);
 router.post("/", authorizeRoles("HR"), createSession);
 router.get("/room/:room_code", getSessionByRoomCode);
-router.put("/:id/status", authorizeRoles("HR"), updateSessionStatus);
+router.put("/:id/status", validateObjectId, authorizeRoles("HR"), updateSessionStatus);
 
 export default router;
