@@ -41,6 +41,26 @@ app.use("/api/candidates", candidateRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 
+// Health check endpoint for deployment (Render, AWS, etc.)
+app.get("/health", (req: express.Request, res: express.Response) => {
+    res.status(200).json({ status: "OK", timestamp: new Date() });
+});
+
+// 404 Not Found Middleware
+app.use((req: express.Request, res: express.Response) => {
+    res.status(404).json({ message: "Đường dẫn không tồn tại (API Not Found)" });
+});
+
+// Global Error Handler (Ngăn chặn leak stack trace trên Production)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("[Global Error]:", err);
+    res.status(500).json({ 
+        message: "Lỗi máy chủ nội bộ (Internal Server Error)",
+        error: process.env.NODE_ENV === "production" ? undefined : err.message
+    });
+});
+
 server.listen(env.PORT, () => {
-    console.log(`Server running at http://localhost:${env.PORT}`);
+    console.log(`[🚀] Server running at http://localhost:${env.PORT}`);
+    console.log(`[🌍] Environment: ${process.env.NODE_ENV || 'development'}`);
 });
