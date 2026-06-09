@@ -26,7 +26,8 @@
         },
         "tags": [
           "Khác"
-        ]
+        ],
+        "summary": "GET /health"
       }
     },
     "/api/v1/auth/register": {
@@ -70,8 +71,9 @@
           }
         },
         "tags": [
-          "Auth"
-        ]
+          "1. Auth"
+        ],
+        "summary": "Đăng ký tài khoản mới"
       }
     },
     "/api/v1/auth/login": {
@@ -109,8 +111,9 @@
           }
         },
         "tags": [
-          "Auth"
-        ]
+          "1. Auth"
+        ],
+        "summary": "Đăng nhập vào hệ thống"
       }
     },
     "/api/v1/auth/refresh": {
@@ -125,8 +128,9 @@
           }
         },
         "tags": [
-          "Auth"
-        ]
+          "1. Auth"
+        ],
+        "summary": "Cấp lại Access Token bằng Refresh Token"
       }
     },
     "/api/v1/auth/logout": {
@@ -153,8 +157,9 @@
           }
         },
         "tags": [
-          "Auth"
-        ]
+          "1. Auth"
+        ],
+        "summary": "Đăng xuất khỏi hệ thống"
       }
     },
     "/api/v1/auth/me": {
@@ -184,8 +189,9 @@
           }
         },
         "tags": [
-          "Auth"
-        ]
+          "1. Auth"
+        ],
+        "summary": "Lấy thông tin cá nhân của người dùng hiện tại"
       }
     },
     "/api/v1/users/": {
@@ -229,8 +235,9 @@
           }
         },
         "tags": [
-          "Users"
-        ]
+          "2. Users"
+        ],
+        "summary": "Lấy danh sách người dùng (Phân trang)"
       }
     },
     "/api/v1/users/{id}": {
@@ -271,8 +278,9 @@
           }
         },
         "tags": [
-          "Users"
-        ]
+          "2. Users"
+        ],
+        "summary": "Xoá người dùng theo ID"
       }
     },
     "/api/v1/job-positions/": {
@@ -299,8 +307,9 @@
           }
         },
         "tags": [
-          "Job Positions"
-        ]
+          "3. Job Positions"
+        ],
+        "summary": "Lấy danh sách vị trí tuyển dụng"
       },
       "post": {
         "description": "",
@@ -348,8 +357,9 @@
           }
         },
         "tags": [
-          "Job Positions"
-        ]
+          "3. Job Positions"
+        ],
+        "summary": "Tạo vị trí tuyển dụng mới"
       }
     },
     "/api/v1/job-positions/{id}": {
@@ -390,8 +400,9 @@
           }
         },
         "tags": [
-          "Job Positions"
-        ]
+          "3. Job Positions"
+        ],
+        "summary": "Lấy thông tin vị trí tuyển dụng theo ID"
       },
       "put": {
         "description": "",
@@ -430,8 +441,9 @@
           }
         },
         "tags": [
-          "Job Positions"
-        ]
+          "3. Job Positions"
+        ],
+        "summary": "Cập nhật vị trí tuyển dụng"
       },
       "delete": {
         "description": "",
@@ -470,8 +482,9 @@
           }
         },
         "tags": [
-          "Job Positions"
-        ]
+          "3. Job Positions"
+        ],
+        "summary": "Xoá vị trí tuyển dụng"
       }
     },
     "/api/v1/candidates/": {
@@ -498,8 +511,9 @@
           }
         },
         "tags": [
-          "Candidates"
-        ]
+          "4. Candidates"
+        ],
+        "summary": "Lấy danh sách ứng viên"
       },
       "post": {
         "description": "",
@@ -547,8 +561,9 @@
           }
         },
         "tags": [
-          "Candidates"
-        ]
+          "4. Candidates"
+        ],
+        "summary": "Tạo hồ sơ ứng viên mới"
       }
     },
     "/api/v1/candidates/{id}": {
@@ -592,8 +607,9 @@
           }
         },
         "tags": [
-          "Candidates"
-        ]
+          "4. Candidates"
+        ],
+        "summary": "Lấy hồ sơ ứng viên theo ID"
       },
       "put": {
         "description": "",
@@ -635,8 +651,9 @@
           }
         },
         "tags": [
-          "Candidates"
-        ]
+          "4. Candidates"
+        ],
+        "summary": "Cập nhật thông tin ứng viên"
       },
       "delete": {
         "description": "",
@@ -678,8 +695,9 @@
           }
         },
         "tags": [
-          "Candidates"
-        ]
+          "4. Candidates"
+        ],
+        "summary": "Xoá ứng viên"
       }
     },
     "/api/v1/skills/": {
@@ -709,8 +727,9 @@
           }
         },
         "tags": [
-          "Skills"
-        ]
+          "5. Skills"
+        ],
+        "summary": "Lấy danh sách kỹ năng"
       },
       "post": {
         "description": "",
@@ -755,8 +774,9 @@
           }
         },
         "tags": [
-          "Skills"
-        ]
+          "5. Skills"
+        ],
+        "summary": "Thêm kỹ năng mới"
       }
     },
     "/api/v1/skills/{id}": {
@@ -800,8 +820,9 @@
           }
         },
         "tags": [
-          "Skills"
-        ]
+          "5. Skills"
+        ],
+        "summary": "Xoá kỹ năng"
       }
     },
     "/api/v1/categories/": {
@@ -828,8 +849,9 @@
           }
         },
         "tags": [
-          "Categories"
-        ]
+          "6. Categories"
+        ],
+        "summary": "Lấy danh sách danh mục câu hỏi"
       },
       "post": {
         "description": "",
@@ -871,8 +893,9 @@
           }
         },
         "tags": [
-          "Categories"
-        ]
+          "6. Categories"
+        ],
+        "summary": "Tạo danh mục mới"
       }
     },
     "/api/v1/categories/{id}": {
@@ -913,8 +936,9 @@
           }
         },
         "tags": [
-          "Categories"
-        ]
+          "6. Categories"
+        ],
+        "summary": "Xoá danh mục"
       }
     },
     "/api/v1/sessions/": {
@@ -941,8 +965,9 @@
           }
         },
         "tags": [
-          "Sessions"
-        ]
+          "9. Interview Sessions"
+        ],
+        "summary": "Lấy danh sách các phiên phỏng vấn"
       },
       "post": {
         "description": "",
@@ -996,8 +1021,9 @@
           }
         },
         "tags": [
-          "Sessions"
-        ]
+          "9. Interview Sessions"
+        ],
+        "summary": "Tạo phòng phỏng vấn mới (Snapshot câu hỏi)"
       }
     },
     "/api/v1/sessions/room/{room_code}": {
@@ -1035,8 +1061,9 @@
           }
         },
         "tags": [
-          "Sessions"
-        ]
+          "9. Interview Sessions"
+        ],
+        "summary": "Lấy thông tin phòng phỏng vấn bằng Mã Phòng (Room Code)"
       }
     },
     "/api/v1/sessions/{id}/status": {
@@ -1094,8 +1121,9 @@
           }
         },
         "tags": [
-          "Sessions"
-        ]
+          "9. Interview Sessions"
+        ],
+        "summary": "Cập nhật trạng thái phòng phỏng vấn (Kích hoạt AI đánh giá)"
       }
     },
     "/api/v1/sessions/{id}/send-invitation": {
@@ -1139,8 +1167,9 @@
           }
         },
         "tags": [
-          "Sessions"
-        ]
+          "9. Interview Sessions"
+        ],
+        "summary": "Gửi email lời mời phỏng vấn cho ứng viên"
       }
     },
     "/api/v1/sessions/{id}/follow-up-question": {
@@ -1201,8 +1230,9 @@
           }
         },
         "tags": [
-          "Sessions"
-        ]
+          "9. Interview Sessions"
+        ],
+        "summary": "AI tạo câu hỏi tiếp nối (Follow-up) theo thời gian thực"
       }
     },
     "/api/v1/questions/": {
@@ -1223,8 +1253,9 @@
           }
         },
         "tags": [
-          "Questions"
-        ]
+          "7. Questions Bank"
+        ],
+        "summary": "Lấy danh sách câu hỏi trong ngân hàng"
       },
       "post": {
         "description": "",
@@ -1246,8 +1277,9 @@
           }
         },
         "tags": [
-          "Questions"
-        ]
+          "7. Questions Bank"
+        ],
+        "summary": "Thêm câu hỏi mới vào ngân hàng"
       }
     },
     "/api/v1/questions/{id}": {
@@ -1282,8 +1314,9 @@
           }
         },
         "tags": [
-          "Questions"
-        ]
+          "7. Questions Bank"
+        ],
+        "summary": "Xoá câu hỏi"
       }
     },
     "/api/v1/questions/import-pdf": {
@@ -1307,8 +1340,9 @@
           }
         },
         "tags": [
-          "Questions"
-        ]
+          "7. Questions Bank"
+        ],
+        "summary": "Nhập danh sách câu hỏi từ file PDF (Parse PDF)"
       }
     },
     "/api/v1/questions/vector-search": {
@@ -1329,8 +1363,9 @@
           }
         },
         "tags": [
-          "Questions"
-        ]
+          "7. Questions Bank"
+        ],
+        "summary": "Tìm kiếm câu hỏi bằng Vector (RAG test)"
       }
     },
     "/api/v1/knowledge/": {
@@ -1360,8 +1395,9 @@
           }
         },
         "tags": [
-          "Knowledge Base (RAG)"
-        ]
+          "8. AI Knowledge Base (RAG)"
+        ],
+        "summary": "Lấy danh sách tài liệu trí tuệ (Knowledge Documents)"
       }
     },
     "/api/v1/knowledge/upload": {
@@ -1414,8 +1450,9 @@
           }
         },
         "tags": [
-          "Knowledge Base (RAG)"
-        ]
+          "8. AI Knowledge Base (RAG)"
+        ],
+        "summary": "Upload tài liệu PDF/DOCX để hệ thống AI học (Vector Embeddings)"
       }
     },
     "/api/v1/recordings/upload": {
@@ -1474,8 +1511,9 @@
           }
         },
         "tags": [
-          "Recordings (AI Pipeline)"
-        ]
+          "10. Audio Recordings"
+        ],
+        "summary": "Upload file âm thanh phỏng vấn của ứng viên (WebRTC)"
       }
     },
     "/api/v1/reports/": {
@@ -1502,8 +1540,9 @@
           }
         },
         "tags": [
-          "Reports"
-        ]
+          "11. AI Evaluation Reports"
+        ],
+        "summary": "Lấy dữ liệu tổng quan cho Dashboard Báo cáo"
       }
     },
     "/api/v1/reports/{sessionId}": {
@@ -1541,8 +1580,9 @@
           }
         },
         "tags": [
-          "Reports"
-        ]
+          "11. AI Evaluation Reports"
+        ],
+        "summary": "Xem chi tiết báo cáo đánh giá của AI cho một phiên phỏng vấn"
       }
     },
     "/api/v1/reports/{sessionId}/re-evaluate": {
@@ -1580,8 +1620,9 @@
           }
         },
         "tags": [
-          "Reports"
-        ]
+          "11. AI Evaluation Reports"
+        ],
+        "summary": "Yêu cầu AI chấm điểm lại phiên phỏng vấn (Tạo Version mới)"
       }
     },
     "/api/v1/reports/{sessionId}/export-pdf": {
@@ -1622,8 +1663,9 @@
           }
         },
         "tags": [
-          "Reports"
-        ]
+          "11. AI Evaluation Reports"
+        ],
+        "summary": "Xuất báo cáo kết quả phỏng vấn dưới dạng file PDF"
       }
     }
   },
