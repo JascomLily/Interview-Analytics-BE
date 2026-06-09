@@ -14,27 +14,29 @@ export const evaluateCandidateAnswer = async (
   questionContent: string,
   expectedAnswer: string,
   candidateAnswer: string,
-  // ragContext: string = "" // móc nối Module 2 vào thì truyền text từ DocumentChunk vào đây
+  ragContext: string = "" 
 ): Promise<EvaluationResponse | null> => {
   try {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
-      // Ép Gemini trả về JSON chuẩn xác
       generationConfig: { responseMimeType: "application/json" } 
     });
 
     const prompt = `
       Bạn là một chuyên gia nhân sự và kỹ sư phần mềm đang phỏng vấn ứng viên.
-      Nhiệm vụ của bạn là chấm điểm câu trả lời của ứng viên dựa trên câu hỏi và đáp án chuẩn.
+      Nhiệm vụ của bạn là chấm điểm câu trả lời của ứng viên dựa trên câu hỏi, đáp án chuẩn, và thông tin ngữ cảnh.
       
-      [THÔNG TIN]
+      [THÔNG TIN NGỮ CẢNH (RAG)]
+      ${ragContext ? ragContext : "Không có thông tin ngữ cảnh cụ thể."}
+
+      [THÔNG TIN PHỎNG VẤN]
       - Câu hỏi: ${questionContent}
       - Đáp án chuẩn (Expected Answer): ${expectedAnswer}
-      - Câu trả lời của ứng viên (được bóc băng từ giọng nói, có thể có sai sót nhỏ về chính tả): ${candidateAnswer}
+      - Câu trả lời của ứng viên (được bóc băng từ giọng nói): ${candidateAnswer}
 
       [YÊU CẦU]
       Hãy đánh giá câu trả lời trên và trả về kết quả định dạng JSON chuẩn với các trường sau:
-      1. "score": Điểm số từ 0 đến 100 dựa trên mức độ khớp với đáp án chuẩn.
+      1. "score": Điểm số từ 0 đến 100 dựa trên mức độ khớp với đáp án chuẩn và ngữ cảnh.
       2. "feedback": Nhận xét chi tiết (tiếng Việt), giải thích lý do tại sao cho điểm đó.
       3. "strengths": Mảng (array) chứa các ý đúng mà ứng viên đã nêu được.
       4. "weaknesses": Mảng (array) chứa các ý ứng viên nói sai, hiểu nhầm, hoặc còn thiếu.

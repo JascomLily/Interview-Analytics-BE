@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import InterviewSession from "../models/interview-session.model";
-import CandidateResponse from "../models/candidate-response.model";
+import Recording from "../models/recording.model";
 import EvaluationResult from "../models/evaluation-result.model";
+import SessionQuestion from "../models/session-question.model";
+import { evaluationQueue } from "../workers/evaluation.queue";
 
 export const getInterviewReport = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -15,48 +17,53 @@ export const getInterviewReport = async (req: Request, res: Response): Promise<v
             return;
         }
 
-        // 2. Lấy tất cả câu trả lời trong phiên này, kèm theo nội dung câu hỏi gốc
-        const responses = await CandidateResponse.find({ session_id: sessionId })
-            .populate({
-                path: "session_question_id",
-                populate: { path: "question_id" } // Rút nội dung câu hỏi từ QuestionBank
-            });
+        // 2. Lấy tất cả câu hỏi của phiên
+        const sessionQuestions = await SessionQuestion.find({ session_id: sessionId }).populate("question_bank_id");
 
-        // 3. Quét qua từng câu trả lời để lôi điểm số tương ứng ra
-        const reportDetails = await Promise.all(responses.map(async (resp) => {
-            const evaluation = await EvaluationResult.findOne({ response_id: resp._id });
+        // 3. Quét qua từng câu hỏi để lấy kết quả
+        const reportDetails = await Promise.all(sessionQuestions.map(async (sq) => {
+            // Lấy Audio của ứng viên cho câu hỏi này
+            const candidateRecording = await Recording.findOne({ 
+                session_id: sessionId, 
+                question_id: sq._id,
+                user_role: "CANDIDATE" 
+            }).sort({ createdAt: -1 });
 
-            // Móc dữ liệu an toàn để tránh lỗi undefined
-            const sessionQuestion: any = resp.session_question_id;
-            const questionData = sessionQuestion?.question_id || {};
+            // Lấy kết quả chấm điểm mới nhất (version cao nhất)
+            const evaluation = await EvaluationResult.findOne({ 
+                session_id: sessionId, 
+                question_id: sq._id 
+            }).sort({ version: -1 });
+
+            const questionData: any = sq.question_bank_id || {};
 
             return {
-                response_id: resp._id,
-                question_content: questionData.content || "Nội dung câu hỏi bị thiếu",
-                expected_answer: questionData.expected_answer || "",
-                candidate_transcript: resp.transcribed_text,
-                audio_url: resp.audio_url,
+                question_id: sq._id,
+                question_content: sq.content || questionData.content || "Nội dung câu hỏi bị thiếu",
+                expected_answer: sq.expected_answer || questionData.expected_answer || "",
+                candidate_transcript: candidateRecording ? candidateRecording.transcript : "",
+                audio_url: candidateRecording ? candidateRecording.audio_url : null,
                 evaluation: evaluation ? {
                     score: evaluation.score,
                     feedback: evaluation.feedback,
                     strengths: evaluation.strengths,
-                    weaknesses: evaluation.weaknesses
+                    weaknesses: evaluation.weaknesses,
+                    version: evaluation.version
                 } : null
             };
         }));
 
-        // 4. Tính toán điểm trung bình tổng thể của cả buổi phỏng vấn
+        // 4. Tính toán điểm trung bình
         const evaluatedAnswers = reportDetails.filter(detail => detail.evaluation !== null);
         const totalScore = evaluatedAnswers.reduce((sum, item) => sum + (item.evaluation?.score || 0), 0);
         const averageScore = evaluatedAnswers.length > 0 ? Math.round(totalScore / evaluatedAnswers.length) : 0;
 
-        // 5. Trả về format chuẩn để Frontend dễ dàng vẽ UI
         res.status(200).json({
             message: "Lấy báo cáo phỏng vấn thành công",
             data: {
                 session_info: session,
                 metrics: {
-                    total_questions: responses.length,
+                    total_questions: sessionQuestions.length,
                     evaluated_questions: evaluatedAnswers.length,
                     average_score: averageScore
                 },
@@ -70,25 +77,24 @@ export const getInterviewReport = async (req: Request, res: Response): Promise<v
     }
 };
 
-// Hàm lấy dữ liệu cho Dashboard
 export const getDashboardReports = async (req: Request, res: Response): Promise<void> => {
     try {
-        // 1. Lấy danh sách tất cả các phiên phỏng vấn, sắp xếp mới nhất lên đầu
         const sessions = await InterviewSession.find()
-            .populate("candidate_profile_id", "full_name email phone") // Chỉ lấy các trường cần thiết của ứng viên
+            .populate("candidate_profile_id", "full_name email phone")
             .sort({ createdAt: -1 });
 
-        // 2. Tính toán nhanh điểm trung bình cho từng phiên
         const dashboardData = await Promise.all(sessions.map(async (session) => {
-            // Tìm tất cả câu trả lời của phiên này
-            const responses = await CandidateResponse.find({ session_id: session._id });
-
+            const sessionQuestions = await SessionQuestion.find({ session_id: session._id });
+            
             let totalScore = 0;
             let evaluatedCount = 0;
 
-            // Lấy điểm từ EvaluationResult
-            for (const resp of responses) {
-                const evaluation = await EvaluationResult.findOne({ response_id: resp._id });
+            for (const sq of sessionQuestions) {
+                const evaluation = await EvaluationResult.findOne({ 
+                    session_id: session._id, 
+                    question_id: sq._id 
+                }).sort({ version: -1 });
+
                 if (evaluation) {
                     totalScore += evaluation.score;
                     evaluatedCount++;
@@ -104,7 +110,7 @@ export const getDashboardReports = async (req: Request, res: Response): Promise<
                 scheduled_at: session.scheduled_at,
                 candidate: session.candidate_profile_id,
                 metrics: {
-                    total_questions_answered: responses.length,
+                    total_questions: sessionQuestions.length,
                     evaluated_questions: evaluatedCount,
                     average_score: averageScore
                 }
@@ -119,5 +125,35 @@ export const getDashboardReports = async (req: Request, res: Response): Promise<
     } catch (error) {
         console.error("[Report Controller] Lỗi khi lấy Dashboard:", error);
         res.status(500).json({ message: "Lỗi máy chủ khi truy xuất dữ liệu thống kê" });
+    }
+};
+
+// Yêu cầu chấm điểm lại toàn bộ (Re-evaluate Versioning)
+export const reEvaluateSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { sessionId } = req.params;
+
+        const session = await InterviewSession.findById(sessionId);
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        // Đẩy lại vào Hàng đợi
+        await evaluationQueue.add(
+            "evaluate-session",
+            { session_id: sessionId, is_reevaluation: true },
+            {
+                attempts: 3,
+                backoff: { type: "exponential", delay: 5000 }
+            }
+        );
+
+        res.status(200).json({
+            message: "Đã yêu cầu AI chấm điểm lại phiên này. Vui lòng quay lại sau ít phút."
+        });
+    } catch (error) {
+        console.error("[Report Controller] Lỗi khi yêu cầu chấm điểm lại:", error);
+        res.status(500).json({ message: "Lỗi máy chủ" });
     }
 };

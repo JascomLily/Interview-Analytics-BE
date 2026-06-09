@@ -139,6 +139,8 @@ export const getSessionByRoomCode = async (req: Request, res: Response): Promise
     }
 };
 
+import { evaluationQueue } from "../workers/evaluation.queue";
+
 // 4. Cập nhật trạng thái buổi PV
 export const updateSessionStatus = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -156,8 +158,22 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
             return;
         }
 
+        // Kích hoạt AI Pipeline khi kết thúc phỏng vấn
+        if (status === "COMPLETED") {
+            await evaluationQueue.add(
+                "evaluate-session",
+                { session_id: id, is_reevaluation: false },
+                {
+                    attempts: 3,
+                    backoff: { type: "exponential", delay: 5000 }
+                }
+            );
+            console.log(`[Queue] Đã đưa Session ${id} vào Hàng đợi chấm điểm AI.`);
+        }
+
         res.json({ data: updatedSession });
     } catch (error) {
+        console.error("[Session] Lỗi khi cập nhật trạng thái:", error);
         res.status(500).json({ message: "Lỗi khi cập nhật trạng thái phỏng vấn" });
     }
 };

@@ -16,6 +16,7 @@ export const env = {
   SMTP_PORT: process.env.SMTP_PORT || "587",
   SMTP_USER: process.env.SMTP_USER || "",
   SMTP_PASS: process.env.SMTP_PASS || "",
+  REDIS_URL: process.env.REDIS_URL || "redis://127.0.0.1:6379",
 };
 
 const requiredVars = ["MONGODB_URI", "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"] as const;

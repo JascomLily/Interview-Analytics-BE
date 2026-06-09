@@ -17,6 +17,7 @@ import skillRoutes from "./routes/skill.route";
 import candidateRoutes from "./routes/candidate.route";
 import categoryRoutes from "./routes/category.route";
 import knowledgeRoutes from "./routes/knowledge.route";
+import "./workers/evaluation.queue"; // Khởi chạy Queue và Worker AI Pipeline
 
 const app = express();
 const server = http.createServer(app);
