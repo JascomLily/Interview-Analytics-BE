@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import CandidateProfile from "../models/candidate-profile.model";
+import InterviewSession from "../models/interview-session.model";
 
 export const getCandidates = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -77,6 +79,13 @@ export const updateCandidate = async (req: Request, res: Response): Promise<void
             return;
         }
 
+        // BR-01: Candidate Profile Integrity (Không cho cập nhật nếu đã gán vào Session)
+        const sessionExists = await InterviewSession.exists({ candidate_profile_id: id });
+        if (sessionExists) {
+            res.status(403).json({ message: "Không thể cập nhật hồ sơ vì ứng viên đã được gán vào một buổi phỏng vấn" });
+            return;
+        }
+
         const updatedCandidate = await CandidateProfile.findByIdAndUpdate(id, updates, { new: true });
         res.json({ data: updatedCandidate, message: "Cập nhật ứng viên thành công" });
     } catch (error) {
@@ -96,6 +105,13 @@ export const deleteCandidate = async (req: Request, res: Response): Promise<void
 
         if (req.user?.role === "HR" && candidate.owner_id.toString() !== req.user.id) {
             res.status(403).json({ message: "Từ chối truy cập" });
+            return;
+        }
+
+        // BR-01: Candidate Profile Integrity (Không cho xoá nếu đã gán vào Session)
+        const sessionExists = await InterviewSession.exists({ candidate_profile_id: id });
+        if (sessionExists) {
+            res.status(403).json({ message: "Không thể xoá ứng viên vì đã được gán vào một buổi phỏng vấn" });
             return;
         }
 
