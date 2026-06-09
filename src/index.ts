@@ -18,9 +18,16 @@ import candidateRoutes from "./routes/candidate.route";
 import categoryRoutes from "./routes/category.route";
 import knowledgeRoutes from "./routes/knowledge.route";
 import "./workers/evaluation.queue"; // Khởi chạy Queue và Worker AI Pipeline
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 
 const app = express();
 const server = http.createServer(app);
+
+// Kích hoạt Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: "Interview Analytics API Docs"
+}));
 
 // Cấu hình trust proxy để Render/Heroku nhận diện đúng HTTPS thay vì HTTP
 app.set("trust proxy", 1);

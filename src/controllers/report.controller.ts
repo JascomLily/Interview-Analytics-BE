@@ -157,3 +157,75 @@ export const reEvaluateSession = async (req: Request, res: Response): Promise<vo
         res.status(500).json({ message: "Lỗi máy chủ" });
     }
 };
+
+import { generatePdfBuffer } from "../services/pdf.service";
+
+// Xuất báo cáo PDF cho Dashboard
+export const exportReportPdf = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { sessionId } = req.params;
+
+        // Tái sử dụng logic lấy Data của API getInterviewReport
+        const session = await InterviewSession.findById(sessionId).populate("candidate_profile_id");
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn này" });
+            return;
+        }
+
+        const sessionQuestions = await SessionQuestion.find({ session_id: sessionId }).populate("question_bank_id");
+
+        const reportDetails = await Promise.all(sessionQuestions.map(async (sq) => {
+            const candidateRecording = await Recording.findOne({ 
+                session_id: sessionId, 
+                question_id: sq._id,
+                user_role: "CANDIDATE" 
+            }).sort({ createdAt: -1 });
+
+            const evaluation = await EvaluationResult.findOne({ 
+                session_id: sessionId, 
+                question_id: sq._id 
+            }).sort({ version: -1 });
+
+            const questionData: any = sq.question_bank_id || {};
+
+            return {
+                question_id: sq._id,
+                question_content: sq.content || questionData.content || "Nội dung câu hỏi bị thiếu",
+                expected_answer: sq.expected_answer || questionData.expected_answer || "",
+                candidate_transcript: candidateRecording ? candidateRecording.transcript : "",
+                evaluation: evaluation ? {
+                    score: evaluation.score,
+                    feedback: evaluation.feedback,
+                    strengths: evaluation.strengths,
+                    weaknesses: evaluation.weaknesses
+                } : null
+            };
+        }));
+
+        const evaluatedAnswers = reportDetails.filter(detail => detail.evaluation !== null);
+        const totalScore = evaluatedAnswers.reduce((sum, item) => sum + (item.evaluation?.score || 0), 0);
+        const averageScore = evaluatedAnswers.length > 0 ? Math.round(totalScore / evaluatedAnswers.length) : 0;
+
+        const reportData = {
+            session_info: session,
+            metrics: {
+                total_questions: sessionQuestions.length,
+                evaluated_questions: evaluatedAnswers.length,
+                average_score: averageScore
+            },
+            detailed_results: reportDetails
+        };
+
+        // Gọi hàm Render PDF
+        const pdfBuffer = await generatePdfBuffer(reportData);
+
+        // Thiết lập Headers trả về File PDF
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename=Interview_Report_${session.room_code}.pdf`);
+        res.send(pdfBuffer);
+
+    } catch (error: any) {
+        console.error("[Report Controller] Lỗi khi xuất PDF:", error.message);
+        res.status(500).json({ message: "Lỗi máy chủ khi tạo báo cáo PDF" });
+    }
+};
