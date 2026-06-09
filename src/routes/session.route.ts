@@ -4,6 +4,7 @@ import {
   createSession,
   getSessionByRoomCode,
   updateSessionStatus,
+  sendInvitation
 } from "../controllers/session.controller";
 import { verifyToken } from "../middlewares/auth.middleware";
 import { authorizeRoles } from "../middlewares/rbac.middleware";
@@ -17,5 +18,6 @@ router.get("/", getSessions);
 router.post("/", authorizeRoles("HR"), createSession);
 router.get("/room/:room_code", getSessionByRoomCode);
 router.put("/:id/status", validateObjectId, authorizeRoles("HR"), updateSessionStatus);
+router.post("/:id/send-invitation", validateObjectId, authorizeRoles("HR"), sendInvitation);
 
 export default router;

@@ -1,8 +1,11 @@
 import { Request, Response } from "express";
 import fs from "fs";
 import pdfParse = require("pdf-parse");
+import mammoth from "mammoth";
+import mongoose from "mongoose";
 import KnowledgeDocument from "../models/knowledge-document.model";
 import DocumentChunk from "../models/document-chunk.model";
+import JobPosition from "../models/job-position.model";
 import { GeminiService } from "../services/gemini.service";
 
 
@@ -22,11 +25,23 @@ const splitTextIntoChunks = (text: string, maxChunkSize = 1000, overlap = 100): 
 export const processKnowledgeDocument = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!req.file) {
-            res.status(400).json({ message: "Không tìm thấy file PDF được upload" });
+            res.status(400).json({ message: "Không tìm thấy file được upload" });
             return;
         }
 
-        const title = req.body.title || req.file.originalname;
+        const { title: bodyTitle, job_position_id } = req.body;
+        if (!job_position_id || !mongoose.Types.ObjectId.isValid(job_position_id)) {
+            res.status(400).json({ message: "Thiếu hoặc sai định dạng job_position_id" });
+            return;
+        }
+
+        const jobExists = await JobPosition.exists({ _id: job_position_id });
+        if (!jobExists) {
+            res.status(404).json({ message: "Không tìm thấy Job Position" });
+            return;
+        }
+
+        const title = bodyTitle || req.file.originalname;
 
        
         const documentRecord = await KnowledgeDocument.create({
@@ -34,21 +49,35 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
             file_url: req.file.path, 
             mime_type: req.file.mimetype,
             uploaded_by: req.user!.id,
+            job_position_id,
             is_processed: false
         });
 
-        console.log(`[RAG] Đang đọc nội dung file PDF: ${req.file.path}`);
+        console.log(`[RAG] Đang đọc nội dung file: ${req.file.path} (${req.file.mimetype})`);
         const fileBuffer = fs.readFileSync(req.file.path);
-        const pdfData = await pdfParse(fileBuffer);
+        let extractedText = "";
 
-        if (!pdfData.text || pdfData.text.trim().length === 0) {
-            res.status(400).json({ message: "Không thể trích xuất văn bản từ file PDF này" });
+        if (req.file.mimetype === "application/pdf") {
+            const pdfData = await pdfParse(fileBuffer);
+            extractedText = pdfData.text;
+        } else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+            const result = await mammoth.extractRawText({ buffer: fileBuffer });
+            extractedText = result.value;
+        } else if (req.file.mimetype === "text/plain") {
+            extractedText = fileBuffer.toString("utf-8");
+        } else {
+            res.status(400).json({ message: "Định dạng file không được hỗ trợ (Chỉ chấp nhận PDF, DOCX, TXT)" });
+            return;
+        }
+
+        if (!extractedText || extractedText.trim().length === 0) {
+            res.status(400).json({ message: "Không thể trích xuất văn bản từ file này" });
             return;
         }
 
         
         console.log("[RAG] Đang băm nhỏ tài liệu thành các Chunk...");
-        const textChunks = splitTextIntoChunks(pdfData.text);
+        const textChunks = splitTextIntoChunks(extractedText);
         console.log(`[RAG] Đã tạo ra ${textChunks.length} chunks.`);
 
         

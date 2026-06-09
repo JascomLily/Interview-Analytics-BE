@@ -5,6 +5,7 @@ export interface IKnowledgeDocument extends Document {
     file_url: string;        // Đường dẫn file (Local hoặc S3)
     mime_type: string;       // Định dạng file (application/pdf, text/plain...)
     uploaded_by: mongoose.Types.ObjectId; // HR nào tải lên
+    job_position_id: mongoose.Types.ObjectId; // Thuộc về JobPosition nào
     is_processed: boolean;   // Đã được băm nhỏ thành Chunk chưa?
 }
 
@@ -13,6 +14,7 @@ const KnowledgeDocumentSchema = new Schema({
     file_url: { type: String, required: true },
     mime_type: { type: String, required: true },
     uploaded_by: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    job_position_id: { type: Schema.Types.ObjectId, ref: "JobPosition", required: true },
     is_processed: { type: Boolean, default: false }
 }, { timestamps: true });
 

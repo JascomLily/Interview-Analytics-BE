@@ -12,6 +12,10 @@ export const env = {
   CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   PYTHON_STT_URL: process.env.PYTHON_STT_URL || "http://localhost:8001",
+  SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
+  SMTP_PORT: process.env.SMTP_PORT || "587",
+  SMTP_USER: process.env.SMTP_USER || "",
+  SMTP_PASS: process.env.SMTP_PASS || "",
 };
 
 const requiredVars = ["MONGODB_URI", "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"] as const;

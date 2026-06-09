@@ -26,6 +26,8 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
     }
 };
 
+import KnowledgeDocument from "../models/knowledge-document.model";
+
 // 2. Tạo phiên phỏng vấn mới 
 export const createSession = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -33,6 +35,17 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
 
         if (!job_position_id || !candidate_profile_id) {
             res.status(400).json({ message: "Thiếu thông tin job_position_id hoặc candidate_profile_id" });
+            return;
+        }
+
+        // BR-05: RAG Prerequisite Gatekeeper
+        const unprocessedDocsCount = await KnowledgeDocument.countDocuments({
+            job_position_id,
+            is_processed: false
+        });
+
+        if (unprocessedDocsCount > 0) {
+            res.status(403).json({ message: "Không thể tạo buổi phỏng vấn. Các tài liệu RAG của Job này đang được xử lý." });
             return;
         }
 
@@ -146,5 +159,48 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
         res.json({ data: updatedSession });
     } catch (error) {
         res.status(500).json({ message: "Lỗi khi cập nhật trạng thái phỏng vấn" });
+    }
+};
+
+import { EmailService } from "../services/email.service";
+
+// 5. Gửi Email chứa Magic Link
+export const sendInvitation = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        
+        const session = await InterviewSession.findById(id).populate("candidate_profile_id");
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        const candidate: any = session.candidate_profile_id;
+        if (!candidate || !candidate.email) {
+            res.status(400).json({ message: "Ứng viên không hợp lệ hoặc thiếu email" });
+            return;
+        }
+
+        // Lấy Magic Link từ bảng Invitation
+        const invitation = await InterviewInvitation.findOne({ session_id: session._id });
+        if (!invitation) {
+            res.status(404).json({ message: "Không tìm thấy thư mời cho phiên này" });
+            return;
+        }
+
+        const magicUrl = `${env.CLIENT_URL}/interview/join?token=${invitation.magic_link_token}`;
+        
+        // Gửi qua Email Service
+        await EmailService.sendMagicLink(
+            candidate.email, 
+            candidate.full_name, 
+            magicUrl, 
+            session.scheduled_at || new Date()
+        );
+
+        res.json({ message: "Đã gửi email lời mời thành công" });
+    } catch (error: any) {
+        console.error("[Session] Lỗi gửi email:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi gửi email" });
     }
 };
