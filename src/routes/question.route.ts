@@ -15,6 +15,8 @@ const router = Router();
 
 router.use(verifyToken);
 
+
+// #swagger.tags = ['Question']
 router.get("/", getQuestions);
 router.post("/", authorizeRoles("HR"), createQuestion);
 router.delete("/:id", validateObjectId, authorizeRoles("HR"), deleteQuestion);
@@ -23,6 +25,8 @@ router.delete("/:id", validateObjectId, authorizeRoles("HR"), deleteQuestion);
 router.post("/import-pdf", authorizeRoles("HR"), upload.single("file"), importQuestionsFromPDF);
 
 // Tìm kiếm câu hỏi bằng Vector Search
+
+// #swagger.tags = ['Question']
 router.post("/vector-search", vectorSearch);
 
 export default router;

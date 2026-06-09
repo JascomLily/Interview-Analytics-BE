@@ -9,8 +9,14 @@ const router = Router();
 router.use(verifyToken);
 router.use(authorizeRoles("HR", "ADMIN"));
 
+
+// #swagger.tags = ['Category']
 router.get("/", getCategories);
+
+// #swagger.tags = ['Category']
 router.post("/", createCategory);
+
+// #swagger.tags = ['Category']
 router.delete("/:id", validateObjectId, deleteCategory);
 
 export default router;

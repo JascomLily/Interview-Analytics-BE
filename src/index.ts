@@ -42,17 +42,18 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 connectDB();
 initializeSocket(server);
 
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/questions", questionRoutes);
-app.use("/api/sessions", sessionRoutes);
-app.use("/api/recordings", recordingRoutes);
-app.use("/api/reports", reportRoutes);
-app.use("/api/job-positions", jobPositionRoutes);
-app.use("/api/skills", skillRoutes);
-app.use("/api/candidates", candidateRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/knowledge", knowledgeRoutes);
+// Mounting các router vào tiền tố /api/v1
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/job-positions", jobPositionRoutes);
+app.use("/api/v1/candidates", candidateRoutes);
+app.use("/api/v1/skills", skillRoutes);
+app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/sessions", sessionRoutes);
+app.use("/api/v1/questions", questionRoutes);
+app.use("/api/v1/knowledge", knowledgeRoutes);
+app.use("/api/v1/recordings", recordingRoutes);
+app.use("/api/v1/reports", reportRoutes);
 
 // Health check endpoint for deployment (Render, AWS, etc.)
 app.get("/health", (req: express.Request, res: express.Response) => {

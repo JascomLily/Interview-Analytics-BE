@@ -30,6 +30,11 @@ connection.on("error", (err) => {
 // 2. Khởi tạo Queue
 export const evaluationQueue = new Queue("EvaluationQueue", { connection: connection as any });
 
+evaluationQueue.on("error", (err) => {
+    if (err.message.includes('ECONNREFUSED')) return;
+    console.error(`[BullMQ Queue] Lỗi: ${err.message}`);
+});
+
 // 3. Khởi tạo Worker xử lý Job
 export const evaluationWorker = new Worker(
     "EvaluationQueue",
@@ -136,4 +141,11 @@ evaluationWorker.on("completed", (job) => {
 
 evaluationWorker.on("failed", (job, err) => {
     console.error(`[BullMQ] Job ${job?.id} bị lỗi: ${err.message}`);
+});
+
+// Chặn BullMQ in ra hàng đống log kết nối dơ bẩn khi Redis sập
+evaluationWorker.on("error", (err) => {
+    // Chỉ im lặng bỏ qua nếu là lỗi kết nối mạng (ECONNREFUSED)
+    if (err.message.includes('ECONNREFUSED')) return;
+    console.error(`[BullMQ] Lỗi nội bộ Worker: ${err.message}`);
 });

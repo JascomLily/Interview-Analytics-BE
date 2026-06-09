@@ -39,5 +39,32 @@ const endpointsFiles = ['../index.ts'];
 
 // Chạy hàm generate
 swaggerAutogen({ openapi: '3.0.0' })(outputFile, endpointsFiles, doc).then(() => {
-    console.log("Đã tạo thành công file Swagger chứa toàn bộ API!");
+    const fs = require('fs');
+    const path = require('path');
+    const outPath = path.resolve(__dirname, outputFile);
+    const data = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+
+    // Tự động gán Tag dựa theo route path (ví dụ /api/v1/auth -> Auth)
+    for (const [routePath, methodsObj] of Object.entries(data.paths)) {
+        let tag = "Khác";
+        if (routePath.includes('/auth')) tag = "Auth";
+        else if (routePath.includes('/users')) tag = "Users";
+        else if (routePath.includes('/job-positions')) tag = "Job Positions";
+        else if (routePath.includes('/candidates')) tag = "Candidates";
+        else if (routePath.includes('/skills')) tag = "Skills";
+        else if (routePath.includes('/categories')) tag = "Categories";
+        else if (routePath.includes('/sessions')) tag = "Sessions";
+        else if (routePath.includes('/questions')) tag = "Questions";
+        else if (routePath.includes('/knowledge')) tag = "Knowledge Base (RAG)";
+        else if (routePath.includes('/recordings')) tag = "Recordings (AI Pipeline)";
+        else if (routePath.includes('/reports')) tag = "Reports";
+
+        const methods: any = methodsObj;
+        for (const method in methods) {
+            methods[method].tags = [tag];
+        }
+    }
+
+    fs.writeFileSync(outPath, JSON.stringify(data, null, 2));
+    console.log("Đã tạo và phân rã Tag thành công cho file Swagger chứa 41 API!");
 });

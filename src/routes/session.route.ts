@@ -15,8 +15,12 @@ const router = Router();
 
 router.use(verifyToken);
 
+
+// #swagger.tags = ['Session']
 router.get("/", getSessions);
 router.post("/", authorizeRoles("HR"), createSession);
+
+// #swagger.tags = ['Session']
 router.get("/room/:room_code", getSessionByRoomCode);
 router.put("/:id/status", validateObjectId, authorizeRoles("HR"), updateSessionStatus);
 router.post("/:id/send-invitation", validateObjectId, authorizeRoles("HR"), sendInvitation);
