@@ -19,22 +19,24 @@ import categoryRoutes from "./routes/category.route";
 import knowledgeRoutes from "./routes/knowledge.route";
 import "./workers/evaluation.queue"; // Khởi chạy Queue và Worker AI Pipeline
 import swaggerUi from "swagger-ui-express";
-import { swaggerSpec } from "./config/swagger";
+import swaggerDocument from "./config/swagger_output.json";
 
 const app = express();
 const server = http.createServer(app);
 
-// Kích hoạt Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: "Interview Analytics API Docs"
-}));
-
 // Cấu hình trust proxy để Render/Heroku nhận diện đúng HTTPS thay vì HTTP
 app.set("trust proxy", 1);
 
-app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Kích hoạt Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+    customSiteTitle: "Interview Analytics API Docs"
+}));
+
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 connectDB();
