@@ -204,3 +204,42 @@ export const sendInvitation = async (req: Request, res: Response): Promise<void>
         res.status(500).json({ message: "Lỗi hệ thống khi gửi email" });
     }
 };
+
+// 6. Thêm câu hỏi Ad-hoc (Dynamic Follow-up)
+export const createFollowUpQuestion = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { content, expected_answer } = req.body;
+
+        if (!content || !expected_answer) {
+            res.status(400).json({ message: "Thiếu nội dung câu hỏi hoặc đáp án kỳ vọng" });
+            return;
+        }
+
+        const session = await InterviewSession.findById(id);
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        // Lấy thứ tự lớn nhất hiện tại
+        const lastQuestion = await SessionQuestion.findOne({ session_id: session._id }).sort({ order_index: -1 });
+        const nextOrderIndex = lastQuestion ? lastQuestion.order_index + 1 : 1;
+
+        const newAdHocQuestion = await SessionQuestion.create({
+            session_id: session._id,
+            content,
+            expected_answer,
+            order_index: nextOrderIndex,
+            is_ad_hoc: true
+        });
+
+        res.status(201).json({
+            message: "Tạo câu hỏi Follow-up thành công",
+            data: newAdHocQuestion
+        });
+    } catch (error) {
+        console.error("[Session] Lỗi tạo câu hỏi Follow-up:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi thêm câu hỏi" });
+    }
+};

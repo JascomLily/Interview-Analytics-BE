@@ -21,6 +21,9 @@ import knowledgeRoutes from "./routes/knowledge.route";
 const app = express();
 const server = http.createServer(app);
 
+// Cấu hình trust proxy để Render/Heroku nhận diện đúng HTTPS thay vì HTTP
+app.set("trust proxy", 1);
+
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
