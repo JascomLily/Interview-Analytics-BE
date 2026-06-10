@@ -9,7 +9,9 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "typeRoots": [ "./node_modules/@types", "./src/types" ]
+    "typeRoots": [ "./node_modules/@types", "./src/types" ],
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node"
   },
   "include": [ "src/**/*" ],
   "exclude": [ "src/scripts/**/*" ]
