@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import fs from "fs";
-import pdfParse = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import mongoose from "mongoose";
 import KnowledgeDocument from "../models/knowledge-document.model";
@@ -58,9 +58,15 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
         let extractedText = "";
 
         if (req.file.mimetype === "application/pdf") {
-            const pdfData = await pdfParse(fileBuffer);
-            extractedText = pdfData.text;
-        } else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const parser = new PDFParse({ data: fileBuffer });
+
+    try {
+        const pdfData = await parser.getText();
+        extractedText = pdfData.text;
+    } finally {
+        await parser.destroy();
+    }
+} else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
             const result = await mammoth.extractRawText({ buffer: fileBuffer });
             extractedText = result.value;
         } else if (req.file.mimetype === "text/plain") {
