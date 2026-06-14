@@ -11,7 +11,22 @@ import InterviewInvitation from "../models/interview-invitation.model";
 // 1. Lấy danh sách phiên phỏng vấn
 export const getSessions = async (req: Request, res: Response): Promise<void> => {
     try {
-        const filter = req.user?.role === "HR" ? { conductor_id: req.user.id } : {};
+        const filter: any = req.user?.role === "HR" ? { conductor_id: req.user.id } : {};
+        
+        // Lọc theo ngày tháng (startDate, endDate)
+        const { startDate, endDate } = req.query;
+        if (startDate || endDate) {
+            filter.scheduled_at = {};
+            if (startDate) {
+                filter.scheduled_at.$gte = new Date(startDate as string);
+            }
+            if (endDate) {
+                // Tạo date đến hết ngày hôm đó
+                const end = new Date(endDate as string);
+                end.setHours(23, 59, 59, 999);
+                filter.scheduled_at.$lte = end;
+            }
+        }
         
         const sessions = await InterviewSession.find(filter)
             .populate("conductor_id", "name email")

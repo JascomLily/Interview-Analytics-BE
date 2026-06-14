@@ -9,7 +9,19 @@ router.use(verifyToken);
 router.use(authorizeRoles("HR", "ADMIN"));
 
 
-// #swagger.tags = ['Report']
+/*
+  #swagger.tags = ['Report']
+  #swagger.parameters['startDate'] = {
+      in: 'query',
+      type: 'string',
+      description: 'Lọc từ ngày (VD: 2024-01-01)'
+  }
+  #swagger.parameters['endDate'] = {
+      in: 'query',
+      type: 'string',
+      description: 'Lọc đến ngày (VD: 2024-12-31)'
+  }
+*/
 router.get("/", getDashboardReports);
 
 

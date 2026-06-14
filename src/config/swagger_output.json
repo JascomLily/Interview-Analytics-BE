@@ -951,6 +951,20 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1523,6 +1537,20 @@
           {
             "name": "authorization",
             "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
             "schema": {
               "type": "string"
             }

@@ -16,7 +16,19 @@ const router = Router();
 router.use(verifyToken);
 
 
-// #swagger.tags = ['Session']
+/*
+  #swagger.tags = ['Session']
+  #swagger.parameters['startDate'] = {
+      in: 'query',
+      type: 'string',
+      description: 'Lọc từ ngày (VD: 2024-01-01)'
+  }
+  #swagger.parameters['endDate'] = {
+      in: 'query',
+      type: 'string',
+      description: 'Lọc đến ngày (VD: 2024-12-31)'
+  }
+*/
 router.get("/", getSessions);
 router.post("/", authorizeRoles("HR"), createSession);
 
