@@ -60,6 +60,7 @@
     "swagger-autogen": "^2.23.7",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
+    "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
     "yamljs": "^0.3.0"
   },

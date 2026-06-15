@@ -1080,6 +1080,66 @@
         "summary": "Lấy thông tin phòng phỏng vấn bằng Mã Phòng (Room Code)"
       }
     },
+    "/api/v1/sessions/{id}": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduled_at": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "9. Interview Sessions"
+        ],
+        "summary": "PUT /api/v1/sessions/{id}"
+      }
+    },
     "/api/v1/sessions/{id}/status": {
       "put": {
         "description": "",
@@ -1389,6 +1449,13 @@
           {
             "name": "authorization",
             "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job_position_id",
+            "in": "query",
             "schema": {
               "type": "string"
             }
