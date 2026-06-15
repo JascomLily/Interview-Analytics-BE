@@ -14,8 +14,12 @@ const RECORDINGS_DIR = path.join(UPLOADS_DIR, "recordings");
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        
-        if (file.mimetype === "application/pdf") {
+        const docTypes = [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain"
+        ];
+        if (docTypes.includes(file.mimetype)) {
             cb(null, DOCS_DIR);
         } else {
             cb(null, RECORDINGS_DIR);

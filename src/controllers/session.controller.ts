@@ -92,7 +92,10 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
         }
 
         // 2.3 Tạo Magic Link Token
+        // Sửa lỗi: Phải gắn id và role để middleware verifyAccessToken trong Socket có thể parse ra được JwtPayload
         const magicLinkPayload = {
+            id: candidate_profile_id,
+            role: "CANDIDATE",
             session_id: newSession._id,
             candidate_id: candidate_profile_id,
             room_code: room_code
@@ -151,6 +154,30 @@ export const getSessionByRoomCode = async (req: Request, res: Response): Promise
         });
     } catch (error) {
         res.status(500).json({ message: "Lỗi khi truy cập phòng phỏng vấn" });
+    }
+};
+
+// 3.5 Cập nhật thông tin cơ bản của Session (như scheduled_at)
+export const updateSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { scheduled_at } = req.body;
+
+        const updatedSession = await InterviewSession.findByIdAndUpdate(
+            id,
+            { scheduled_at },
+            { new: true }
+        );
+
+        if (!updatedSession) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        res.json({ message: "Cập nhật thành công", data: updatedSession });
+    } catch (error) {
+        console.error("[Session] Lỗi cập nhật:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi cập nhật phiên phỏng vấn" });
     }
 };
 

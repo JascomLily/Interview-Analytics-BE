@@ -46,7 +46,7 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
             user_role,
             audio_url: fileUrl, // Bổ sung audio_url tương thích
             file_url: fileUrl,
-            file_name: req.file.originalname,
+            file_name: req.file.filename,
             status: "PENDING",
             timestamp_metadata: {
                 started_at: started_at ? new Date(started_at) : new Date(),

@@ -4,6 +4,7 @@ import {
   createSession,
   getSessionByRoomCode,
   updateSessionStatus,
+  updateSession,
   sendInvitation,
   createFollowUpQuestion
 } from "../controllers/session.controller";
@@ -34,6 +35,7 @@ router.post("/", authorizeRoles("HR"), createSession);
 
 // #swagger.tags = ['Session']
 router.get("/room/:room_code", getSessionByRoomCode);
+router.put("/:id", validateObjectId, authorizeRoles("HR"), updateSession);
 router.put("/:id/status", validateObjectId, authorizeRoles("HR"), updateSessionStatus);
 router.post("/:id/send-invitation", validateObjectId, authorizeRoles("HR"), sendInvitation);
 router.post("/:id/follow-up-question", validateObjectId, authorizeRoles("HR"), createFollowUpQuestion);

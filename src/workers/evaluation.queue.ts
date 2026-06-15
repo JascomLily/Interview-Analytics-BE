@@ -8,6 +8,9 @@ import { SttService } from "../services/stt.service";
 import { evaluateCandidateAnswer } from "../services/evaluation.service";
 import { GeminiService } from "../services/gemini.service";
 import DocumentChunk from "../models/document-chunk.model";
+import InterviewSession from "../models/interview-session.model";
+import mongoose from "mongoose";
+import path from "path";
 
 // 1. Cấu hình Redis connection
 const connection = new Redis(env.REDIS_URL, {
@@ -58,7 +61,8 @@ export const evaluationWorker = new Worker(
             for (const rec of recordings) {
                 // 1. Dịch STT cho từng đoạn
                 if (!rec.transcript) {
-                    const transcript = await SttService.transcribe(rec.file_url.replace(/\\/g, '/'), "audio/webm"); // mock mime
+                    const localPath = path.join(process.cwd(), 'uploads', 'recordings', rec.file_name);
+                    const transcript = await SttService.transcribe(localPath, "audio/webm"); // mock mime
                     rec.transcript = transcript || "[Bóc băng thất bại]";
                     rec.status = "COMPLETED";
                     await rec.save();
@@ -71,6 +75,10 @@ export const evaluationWorker = new Worker(
             }
 
             // Tiến hành Evaluation cho từng câu hỏi
+            // Lấy session để có job_position_id cho RAG filter
+            const session = await InterviewSession.findById(session_id);
+            const jobPositionId = session?.job_position_id;
+
             for (const [qId, recs] of Object.entries(recordingsByQuestion)) {
                 // Chỉ lấy câu trả lời của CANDIDATE để chấm điểm
                 const candidateRecs = recs.filter(r => r.user_role === "CANDIDATE");
@@ -89,7 +97,7 @@ export const evaluationWorker = new Worker(
                 let ragContext = "";
                 try {
                     const questionEmbedding = await GeminiService.generateEmbedding(questionContent);
-                    const relevantChunks = await DocumentChunk.aggregate([
+                    const pipeline: any[] = [
                         {
                             $vectorSearch: {
                                 index: "vector_index", // Tên index trên MongoDB Atlas
@@ -99,7 +107,16 @@ export const evaluationWorker = new Worker(
                                 limit: 3
                             }
                         }
-                    ]);
+                    ];
+
+                    // FEA-3.5 RAG Isolation: Chỉ lấy DocumentChunks thuộc về Job Position hiện tại
+                    if (jobPositionId) {
+                        pipeline[0].$vectorSearch.filter = { 
+                            job_position_id: new mongoose.Types.ObjectId(jobPositionId.toString()) 
+                        };
+                    }
+
+                    const relevantChunks = await DocumentChunk.aggregate(pipeline);
                     ragContext = relevantChunks.map(chunk => chunk.content).join("\n\n");
                 } catch (ragError: any) {
                     console.warn(`[Worker] Cảnh báo: Vector Search RAG thất bại hoặc chưa config Atlas. Bỏ qua RAG Context.`);

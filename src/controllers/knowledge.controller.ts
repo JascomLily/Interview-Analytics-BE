@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import fs from "fs";
-import { PDFParse } from "pdf-parse";
+import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import mongoose from "mongoose";
 import KnowledgeDocument from "../models/knowledge-document.model";
@@ -58,14 +58,8 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
         let extractedText = "";
 
         if (req.file.mimetype === "application/pdf") {
-    const parser = new PDFParse({ data: fileBuffer });
-
-    try {
-        const pdfData = await parser.getText();
-        extractedText = pdfData.text;
-    } finally {
-        await parser.destroy();
-    }
+            const pdfData = await pdfParse(fileBuffer);
+            extractedText = pdfData.text;
 } else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
             const result = await mammoth.extractRawText({ buffer: fileBuffer });
             extractedText = result.value;
@@ -96,6 +90,7 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
                 const embedding = await GeminiService.generateEmbedding(textChunks[i]);
                 chunksToSave.push({
                     document_id: documentRecord._id,
+                    job_position_id: job_position_id, // Gắn ID để cô lập
                     content: textChunks[i],
                     embedding: embedding,
                     chunk_index: i + 1
@@ -112,10 +107,6 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
         documentRecord.is_processed = true;
         await documentRecord.save();
 
-        fs.unlink(req.file.path, (err) => {
-            if (err) console.error("[RAG] Lỗi xóa file tạm:", err.message);
-        });
-
         res.status(201).json({
             message: "Xử lý RAG tài liệu thành công",
             data: {
@@ -127,12 +118,23 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
     } catch (error: any) {
         console.error("[RAG] Lỗi pipeline:", error);
         res.status(500).json({ message: "Lỗi hệ thống khi xử lý tài liệu tri thức" });
+    } finally {
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) console.error("[RAG] Lỗi xóa file tạm:", err.message);
+            });
+        }
     }
 };
 
 export const getKnowledgeDocuments = async (req: Request, res: Response): Promise<void> => {
     try {
-        const documents = await KnowledgeDocument.find()
+        const filter: any = {};
+        if (req.query.job_position_id) {
+            filter.job_position_id = req.query.job_position_id;
+        }
+
+        const documents = await KnowledgeDocument.find(filter)
             .populate("uploaded_by", "name email")
             .sort({ createdAt: -1 });
 
