@@ -10,9 +10,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "typeRoots": [ "./node_modules/@types", "./src/types" ],
-    "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
-    "ignoreDeprecations": "6.0"
+    "allowSyntheticDefaultImports": true
   },
   "include": [ "src/**/*" ],
   "exclude": [ "src/scripts/**/*" ]

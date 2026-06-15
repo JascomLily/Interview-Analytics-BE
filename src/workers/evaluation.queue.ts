@@ -15,6 +15,8 @@ import path from "path";
 // 1. Cấu hình Redis connection
 const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
+    // Kích hoạt TLS nếu dùng Upstash (rediss://)
+    tls: env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
     retryStrategy(times) {
         // Nếu không có Redis (như trên máy local chưa cài), thì không crash app mà chỉ log
         if (times > 3) {
