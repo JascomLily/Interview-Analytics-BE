@@ -75,6 +75,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 server.listen(env.PORT, () => {
-    console.log(`[🚀] Server running at http://localhost:${env.PORT}`);
+    console.log(`[🚀] Server is running on port ${env.PORT}`);
     console.log(`[🌍] Environment: ${process.env.NODE_ENV || 'development'}`);
 });
