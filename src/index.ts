@@ -12,6 +12,7 @@ import questionRoutes from "./routes/question.route";
 import sessionRoutes from "./routes/session.route";
 import recordingRoutes from "./routes/recording.route";
 import reportRoutes from "./routes/report.route";
+import knowledgeRoutes from "./routes/knowledge.route";
 
 const app = express();
 const server = http.createServer(app);
@@ -30,6 +31,7 @@ app.use("/api/questions", questionRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/recordings", recordingRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/knowledge", knowledgeRoutes);
 
 server.listen(env.PORT, () => {
     console.log(`Server running at http://localhost:${env.PORT}`);

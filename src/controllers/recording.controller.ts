@@ -14,7 +14,8 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
         }
 
         // Bắt buộc phải có session_question_id để biết ứng viên đang trả lời câu nào
-        const { session_id, session_question_id } = req.body;
+        const session_id = req.body.session_id;
+        const session_question_id = req.body.session_question_id || req.body.question_id;
 
         if (!session_id || !session_question_id) {
             res.status(400).json({ message: "Thiếu session_id hoặc session_question_id" });
