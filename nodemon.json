@@ -1,0 +1,6 @@
+{
+  "watch": ["src"],
+  "ext": "ts",
+  "ignore": ["src/config/swagger_output.json", "src/scripts/swagger.ts"],
+  "exec": "npm run swagger && ts-node src/index.ts"
+}

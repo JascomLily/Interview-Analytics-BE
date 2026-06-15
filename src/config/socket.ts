@@ -176,6 +176,33 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
             }
         });
 
+    socket.on("webrtc:offer", (data: { roomCode: string; targetUserId: string; offer: any }) => {
+      const { roomCode, targetUserId, offer } = data;
+      socket.to(roomCode).emit("webrtc:offer-received", {
+        userId: user.id,
+        targetUserId,
+        offer
+      });
+    });
+
+    socket.on("webrtc:answer", (data: { roomCode: string; targetUserId: string; answer: any }) => {
+      const { roomCode, targetUserId, answer } = data;
+      socket.to(roomCode).emit("webrtc:answer-received", {
+        userId: user.id,
+        targetUserId,
+        answer
+      });
+    });
+
+    socket.on("webrtc:ice-candidate", (data: { roomCode: string; targetUserId: string; candidate: any }) => {
+      const { roomCode, targetUserId, candidate } = data;
+      socket.to(roomCode).emit("webrtc:ice-candidate-received", {
+        userId: user.id,
+        targetUserId,
+        candidate
+      });
+    });
+
     socket.on("disconnect", () => {
       const roomCode = findRoomBySocketId(socket.id);
       if (roomCode) {

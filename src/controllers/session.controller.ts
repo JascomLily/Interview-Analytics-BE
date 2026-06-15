@@ -11,7 +11,24 @@ import InterviewInvitation from "../models/interview-invitation.model";
 // 1. Lấy danh sách phiên phỏng vấn
 export const getSessions = async (req: Request, res: Response): Promise<void> => {
     try {
-        const sessions = await InterviewSession.find()
+        const filter: any = req.user?.role === "HR" ? { conductor_id: req.user.id } : {};
+        
+        // Lọc theo ngày tháng (startDate, endDate)
+        const { startDate, endDate } = req.query;
+        if (startDate || endDate) {
+            filter.scheduled_at = {};
+            if (startDate) {
+                filter.scheduled_at.$gte = new Date(startDate as string);
+            }
+            if (endDate) {
+                // Tạo date đến hết ngày hôm đó
+                const end = new Date(endDate as string);
+                end.setHours(23, 59, 59, 999);
+                filter.scheduled_at.$lte = end;
+            }
+        }
+        
+        const sessions = await InterviewSession.find(filter)
             .populate("conductor_id", "name email")
             .populate("job_position_id", "title")
             .populate("candidate_profile_id", "full_name email")
@@ -24,6 +41,8 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
     }
 };
 
+import KnowledgeDocument from "../models/knowledge-document.model";
+
 // 2. Tạo phiên phỏng vấn mới 
 export const createSession = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -31,6 +50,17 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
 
         if (!job_position_id || !candidate_profile_id) {
             res.status(400).json({ message: "Thiếu thông tin job_position_id hoặc candidate_profile_id" });
+            return;
+        }
+
+        // BR-05: RAG Prerequisite Gatekeeper
+        const unprocessedDocsCount = await KnowledgeDocument.countDocuments({
+            job_position_id,
+            is_processed: false
+        });
+
+        if (unprocessedDocsCount > 0) {
+            res.status(403).json({ message: "Không thể tạo buổi phỏng vấn. Các tài liệu RAG của Job này đang được xử lý." });
             return;
         }
 
@@ -62,7 +92,10 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
         }
 
         // 2.3 Tạo Magic Link Token
+        // Sửa lỗi: Phải gắn id và role để middleware verifyAccessToken trong Socket có thể parse ra được JwtPayload
         const magicLinkPayload = {
+            id: candidate_profile_id,
+            role: "CANDIDATE",
             session_id: newSession._id,
             candidate_id: candidate_profile_id,
             room_code: room_code
@@ -124,6 +157,32 @@ export const getSessionByRoomCode = async (req: Request, res: Response): Promise
     }
 };
 
+// 3.5 Cập nhật thông tin cơ bản của Session (như scheduled_at)
+export const updateSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { scheduled_at } = req.body;
+
+        const updatedSession = await InterviewSession.findByIdAndUpdate(
+            id,
+            { scheduled_at },
+            { new: true }
+        );
+
+        if (!updatedSession) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        res.json({ message: "Cập nhật thành công", data: updatedSession });
+    } catch (error) {
+        console.error("[Session] Lỗi cập nhật:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi cập nhật phiên phỏng vấn" });
+    }
+};
+
+import { evaluationQueue } from "../workers/evaluation.queue";
+
 // 4. Cập nhật trạng thái buổi PV
 export const updateSessionStatus = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -141,8 +200,104 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
             return;
         }
 
+        // Kích hoạt AI Pipeline khi kết thúc phỏng vấn
+        if (status === "COMPLETED") {
+            await evaluationQueue.add(
+                "evaluate-session",
+                { session_id: id, is_reevaluation: false },
+                {
+                    attempts: 3,
+                    backoff: { type: "exponential", delay: 5000 }
+                }
+            );
+            console.log(`[Queue] Đã đưa Session ${id} vào Hàng đợi chấm điểm AI.`);
+        }
+
         res.json({ data: updatedSession });
     } catch (error) {
+        console.error("[Session] Lỗi khi cập nhật trạng thái:", error);
         res.status(500).json({ message: "Lỗi khi cập nhật trạng thái phỏng vấn" });
+    }
+};
+
+import { EmailService } from "../services/email.service";
+
+// 5. Gửi Email chứa Magic Link
+export const sendInvitation = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        
+        const session = await InterviewSession.findById(id).populate("candidate_profile_id");
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        const candidate: any = session.candidate_profile_id;
+        if (!candidate || !candidate.email) {
+            res.status(400).json({ message: "Ứng viên không hợp lệ hoặc thiếu email" });
+            return;
+        }
+
+        // Lấy Magic Link từ bảng Invitation
+        const invitation = await InterviewInvitation.findOne({ session_id: session._id });
+        if (!invitation) {
+            res.status(404).json({ message: "Không tìm thấy thư mời cho phiên này" });
+            return;
+        }
+
+        const magicUrl = `${env.CLIENT_URL}/interview/join?token=${invitation.magic_link_token}`;
+        
+        // Gửi qua Email Service
+        await EmailService.sendMagicLink(
+            candidate.email, 
+            candidate.full_name, 
+            magicUrl, 
+            session.scheduled_at || new Date()
+        );
+
+        res.json({ message: "Đã gửi email lời mời thành công" });
+    } catch (error: any) {
+        console.error("[Session] Lỗi gửi email:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi gửi email" });
+    }
+};
+
+// 6. Thêm câu hỏi Ad-hoc (Dynamic Follow-up)
+export const createFollowUpQuestion = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { content, expected_answer } = req.body;
+
+        if (!content || !expected_answer) {
+            res.status(400).json({ message: "Thiếu nội dung câu hỏi hoặc đáp án kỳ vọng" });
+            return;
+        }
+
+        const session = await InterviewSession.findById(id);
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        // Lấy thứ tự lớn nhất hiện tại
+        const lastQuestion = await SessionQuestion.findOne({ session_id: session._id }).sort({ order_index: -1 });
+        const nextOrderIndex = lastQuestion ? lastQuestion.order_index + 1 : 1;
+
+        const newAdHocQuestion = await SessionQuestion.create({
+            session_id: session._id,
+            content,
+            expected_answer,
+            order_index: nextOrderIndex,
+            is_ad_hoc: true
+        });
+
+        res.status(201).json({
+            message: "Tạo câu hỏi Follow-up thành công",
+            data: newAdHocQuestion
+        });
+    } catch (error) {
+        console.error("[Session] Lỗi tạo câu hỏi Follow-up:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi thêm câu hỏi" });
     }
 };

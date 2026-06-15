@@ -14,6 +14,11 @@ declare global {
     namespace Express {
         interface Request {
             user?: JwtPayload;
+            candidate?: {
+                id: string;
+                session_id: string;
+                room_code: string;
+            };
         }
     }
 }
