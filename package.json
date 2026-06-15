@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/index.js",
+    "prebuild": "npm run swagger",
     "build": "tsc",
     "swagger": "ts-node src/scripts/swagger.ts",
+    "predev": "npm run swagger",
     "dev": "nodemon",
     "seed": "ts-node src/scripts/seed.ts",
     "postinstall": "npm run build"

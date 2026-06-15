@@ -1,7 +1,8 @@
+// Tắt log quảng cáo của dotenv phiên bản mới
+process.env.DOTENV_QUIET = "true";
+
 import dotenv from "dotenv";
-
 dotenv.config();
-
 export const env = {
   PORT: parseInt(process.env.PORT || "5000", 10),
   MONGODB_URI: process.env.MONGODB_URI || "",
