@@ -47,7 +47,7 @@ export class GeminiService {
   }
 
   /**
-   * Gửi file PDF cho Gemini 1.5 Flash để trích xuất/thiết kế bộ câu hỏi.
+   * Gửi file PDF cho Gemini 3.5 Flash để trích xuất/thiết kế bộ câu hỏi.
    */
   public static async parseQuestionPDF(fileBuffer: Buffer): Promise<any[]> {
     try {
@@ -118,7 +118,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
   }
 
   /**
-   * Bóc băng âm thanh (STT) dự phòng sử dụng Gemini 1.5 Flash.
+   * Bóc băng âm thanh (STT) dự phòng sử dụng Gemini 3.5 Flash.
    */
   public static async transcribeAudio(fileBuffer: Buffer, mimeType: string): Promise<string> {
     try {
