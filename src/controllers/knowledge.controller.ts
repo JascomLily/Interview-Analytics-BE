@@ -43,10 +43,10 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
 
         const title = bodyTitle || req.file.originalname;
 
-       
+
         const documentRecord = await KnowledgeDocument.create({
             title: title,
-            file_url: req.file.path, 
+            file_url: req.file.path,
             mime_type: req.file.mimetype,
             uploaded_by: req.user!.id,
             job_position_id,
@@ -60,7 +60,7 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
         if (req.file.mimetype === "application/pdf") {
             const pdfData = await pdfParse(fileBuffer);
             extractedText = pdfData.text;
-} else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        } else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
             const result = await mammoth.extractRawText({ buffer: fileBuffer });
             extractedText = result.value;
         } else if (req.file.mimetype === "text/plain") {
@@ -75,16 +75,16 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
             return;
         }
 
-        
+
         console.log("[RAG] Đang băm nhỏ tài liệu thành các Chunk...");
         const textChunks = splitTextIntoChunks(extractedText);
         console.log(`[RAG] Đã tạo ra ${textChunks.length} chunks.`);
 
-        
+
         console.log("[RAG] Đang gọi Gemini API để tạo Vector Embeddings...");
         const chunksToSave = [];
 
-       
+
         for (let i = 0; i < textChunks.length; i++) {
             try {
                 const embedding = await GeminiService.generateEmbedding(textChunks[i]);
@@ -100,7 +100,7 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
             }
         }
 
-        
+
         await DocumentChunk.insertMany(chunksToSave);
 
 
