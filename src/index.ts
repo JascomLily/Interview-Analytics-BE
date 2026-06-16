@@ -55,6 +55,19 @@ app.use("/api/v1/knowledge", knowledgeRoutes);
 app.use("/api/v1/recordings", recordingRoutes);
 app.use("/api/v1/reports", reportRoutes);
 
+// Route mặc định khi truy cập vào link gốc
+app.get("/", (req: express.Request, res: express.Response) => {
+    res.status(200).send(`
+        <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+            <h1 style="color: #4CAF50;">✅ Interview Analytics API is running!</h1>
+            <p>Phiên bản: 1.0.0 | Môi trường: ${process.env.NODE_ENV || 'development'}</p>
+            <a href="/api-docs" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #008CBA; color: white; text-decoration: none; border-radius: 5px;">
+                📚 Xem Tài liệu API (Swagger)
+            </a>
+        </div>
+    `);
+});
+
 // Health check endpoint for deployment (Render, AWS, etc.)
 app.get("/health", (req: express.Request, res: express.Response) => {
     res.status(200).json({ status: "OK", timestamp: new Date() });
