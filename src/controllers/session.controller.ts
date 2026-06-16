@@ -202,15 +202,20 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
 
         // Kích hoạt AI Pipeline khi kết thúc phỏng vấn
         if (status === "COMPLETED") {
-            await evaluationQueue.add(
-                "evaluate-session",
-                { session_id: id, is_reevaluation: false },
-                {
-                    attempts: 3,
-                    backoff: { type: "exponential", delay: 5000 }
-                }
-            );
-            console.log(`[Queue] Đã đưa Session ${id} vào Hàng đợi chấm điểm AI.`);
+            try {
+                await evaluationQueue.add(
+                    "evaluate-session",
+                    { session_id: id, is_reevaluation: false },
+                    {
+                        attempts: 3,
+                        backoff: { type: "exponential", delay: 5000 }
+                    }
+                );
+                console.log(`[Queue] Đã đưa Session ${id} vào Hàng đợi chấm điểm AI.`);
+            } catch (queueErr) {
+                console.warn("[Queue] Không thể đưa Job vào hàng đợi. Có thể do Redis chưa bật:", queueErr);
+                // Không throw error để API vẫn trả về 200 (vì status đã được lưu thành công)
+            }
         }
 
         res.json({ data: updatedSession });
@@ -259,6 +264,10 @@ export const sendInvitation = async (req: Request, res: Response): Promise<void>
         res.json({ message: "Đã gửi email lời mời thành công" });
     } catch (error: any) {
         console.error("[Session] Lỗi gửi email:", error);
+        if (error.message && (error.message.includes("SMTP") || error.message.includes("credential"))) {
+            res.status(400).json({ message: "Gửi email thất bại: Chưa cấu hình thông tin SMTP Email trong file .env." });
+            return;
+        }
         res.status(500).json({ message: "Lỗi hệ thống khi gửi email" });
     }
 };

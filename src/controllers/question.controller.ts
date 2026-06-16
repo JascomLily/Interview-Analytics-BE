@@ -153,12 +153,16 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
         });
 
         res.status(201).json({
-            message: `Import thành công ${savedQuestions.length} câu hỏi từ PDF`,
-            data: savedQuestions,
+            message: "Import câu hỏi từ PDF thành công",
+            data: savedQuestions
         });
     } catch (error: any) {
-        console.error("[QuestionBank] Lỗi khi import PDF:", error.message);
-        res.status(500).json({ message: "Lỗi khi xử lý file PDF và import câu hỏi" });
+        console.error("[QuestionBank] Lỗi khi import PDF:", error);
+        if (error.message && error.message.includes("GEMINI_API_KEY")) {
+            res.status(400).json({ message: "Phân tích thất bại: Chưa cấu hình GEMINI_API_KEY trong file .env." });
+            return;
+        }
+        res.status(500).json({ message: "Lỗi hệ thống khi phân tích PDF" });
     }
 };
 

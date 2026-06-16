@@ -36,6 +36,9 @@ export const EmailService = {
         };
 
         try {
+            if (!env.SMTP_USER || !env.SMTP_PASS) {
+                throw new Error("Missing SMTP credentials");
+            }
             const info = await transporter.sendMail(mailOptions);
             console.log("[EmailService] Message sent: %s", info.messageId);
             return true;
