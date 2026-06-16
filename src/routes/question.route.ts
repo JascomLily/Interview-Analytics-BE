@@ -5,6 +5,7 @@ import {
   deleteQuestion,
   importQuestionsFromPDF,
   vectorSearch,
+  updateQuestion,
 } from "../controllers/question.controller";
 import { verifyToken} from "../middlewares/auth.middleware";
 import { upload } from "../middlewares/upload.middleware";
@@ -17,6 +18,7 @@ router.use(verifyToken);
 
 router.get("/", getQuestions);
 router.post("/", authorizeRoles("HR"), createQuestion);
+router.put("/:id", validateObjectId, authorizeRoles("HR"), updateQuestion);
 router.delete("/:id", validateObjectId, authorizeRoles("HR"), deleteQuestion);
 
 // Import câu hỏi từ PDF (Chỉ HR được phép)
