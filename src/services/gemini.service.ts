@@ -14,7 +14,7 @@ export class GeminiService {
   public static async generateEmbedding(text: string): Promise<number[]> {
     try {
       const apiKey = this.getApiKey();
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`;
 
       const response = await fetch(url, {
         method: "POST",
@@ -22,10 +22,11 @@ export class GeminiService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "models/text-embedding-004",
+          model: "models/gemini-embedding-001",
           content: {
             parts: [{ text }],
           },
+          outputDimensionality: 768
         }),
       });
 
