@@ -1645,9 +1645,6 @@
           "403": {
             "description": "Forbidden"
           },
-          "404": {
-            "description": "Not Found"
-          },
           "500": {
             "description": "Internal Server Error"
           }
@@ -1655,7 +1652,7 @@
         "tags": [
           "8. AI Knowledge Base (RAG)"
         ],
-        "summary": "DELETE /api/v1/knowledge/{id}"
+        "summary": "Xóa tài liệu tri thức và dữ liệu vector RAG liên quan"
       }
     },
     "/api/v1/recordings/upload": {

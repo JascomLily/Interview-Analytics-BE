@@ -176,7 +176,9 @@ export const deleteKnowledgeDocument = async (req: Request, res: Response): Prom
 
         const doc = await KnowledgeDocument.findById(id);
         if (!doc) {
-            res.status(404).json({ message: "Không tìm thấy tài liệu" });
+            // Document đã bị xóa trước đó hoặc không tồn tại → trả 200 để FE refresh UI
+            await DocumentChunk.deleteMany({ document_id: id });
+            res.json({ message: "Tài liệu đã được xóa trước đó" });
             return;
         }
 

@@ -83,6 +83,7 @@ const apiDetails: Record<string, string> = {
   // Knowledge Base
   "get_/api/v1/knowledge/": "Lấy danh sách tài liệu trí tuệ (Knowledge Documents)",
   "post_/api/v1/knowledge/upload": "Upload tài liệu PDF/DOCX để hệ thống AI học (Vector Embeddings)",
+  "delete_/api/v1/knowledge/{id}": "Xóa tài liệu tri thức và dữ liệu vector RAG liên quan",
 
   // Sessions
   "get_/api/v1/sessions/": "Lấy danh sách các phiên phỏng vấn",
