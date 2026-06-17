@@ -16,6 +16,20 @@
     }
   ],
   "paths": {
+    "/": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "Khác"
+        ],
+        "summary": "GET /"
+      }
+    },
     "/health": {
       "get": {
         "description": "",
