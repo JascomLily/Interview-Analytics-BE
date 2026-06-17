@@ -1540,6 +1540,33 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "file",
+            "in": "formData",
+            "required": true,
+            "description": "Tải lên tài liệu tri thức (PDF, DOCX, TXT)",
+            "schema": {
+              "type": "file"
+            }
+          },
+          {
+            "name": "job_position_id",
+            "in": "formData",
+            "required": true,
+            "description": "ID của Job Position",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "title",
+            "in": "formData",
+            "required": false,
+            "description": "Tiêu đề tài liệu",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1583,6 +1610,52 @@
           "8. AI Knowledge Base (RAG)"
         ],
         "summary": "Upload tài liệu PDF/DOCX để hệ thống AI học (Vector Embeddings)"
+      }
+    },
+    "/api/v1/knowledge/{id}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "8. AI Knowledge Base (RAG)"
+        ],
+        "summary": "DELETE /api/v1/knowledge/{id}"
       }
     },
     "/api/v1/recordings/upload": {
