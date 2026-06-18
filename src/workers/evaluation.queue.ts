@@ -15,26 +15,22 @@ import path from "path";
 // 1. Cấu hình Redis connection
 const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
-    // Kích hoạt TLS nếu dùng Upstash (rediss://)
     tls: env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
     retryStrategy(times) {
-        // Nếu không có Redis (như trên máy local chưa cài), thì không crash app mà chỉ log
         if (times > 3) {
             console.warn("[Redis] Không thể kết nối Redis. Hàng đợi BullMQ tạm thời vô hiệu hoá.");
-            return null; // Dừng retry
+            return null;
         }
         return Math.min(times * 50, 2000);
     }
 });
 
 connection.on("error", (err) => {
-    // Ngăn chặn việc Redis error làm crash luôn ứng dụng
     console.error("[Redis] Lỗi kết nối:", err.message);
 });
 
 // 2. Khởi tạo Queue
 export const evaluationQueue = new Queue("EvaluationQueue", { connection: connection as any });
-
 evaluationQueue.on("error", (err) => {
     if (err.message.includes('ECONNREFUSED')) return;
     console.error(`[BullMQ Queue] Lỗi: ${err.message}`);
@@ -48,46 +44,62 @@ export const evaluationWorker = new Worker(
         console.log(`[Worker] Bắt đầu xử lý Job cho Session ${session_id}...`);
 
         try {
+            // CRITICAL CHECK 1: Kiểm tra trạng thái session ngay khi bắt đầu vào worker
+            let session = await InterviewSession.findById(session_id);
+            if (!session || session.status === "cancelled") {
+                console.log(`[Worker] Session ${session_id} đã bị hủy bỏ hoặc không tồn tại. Dừng xử lý ngay lập tức.`);
+                return { status: "skipped_cancelled" };
+            }
+
             // Lấy toàn bộ các bản ghi âm PENDING của phiên này
-            // Nếu là re-evaluation thì lấy toàn bộ (bỏ qua điều kiện PENDING)
             const query = is_reevaluation ? { session_id } : { session_id, status: "PENDING" };
             const recordings = await Recording.find(query);
 
             if (recordings.length === 0) {
                 console.log(`[Worker] Không có file âm thanh nào cần xử lý.`);
-                return;
+                return { status: "no_recordings" };
             }
 
             // Nhóm ghi âm theo từng Câu hỏi
             const recordingsByQuestion: Record<string, any[]> = {};
             for (const rec of recordings) {
+                // Thêm kiểm tra nhanh trong vòng lặp tốn thời gian
+                session = await InterviewSession.findById(session_id);
+                if (session?.status === "cancelled") {
+                    console.log(`[Worker] Phát hiện session ${session_id} bị hủy trong quá trình STT. Dừng lại.`);
+                    return { status: "skipped_cancelled" };
+                }
+
                 // 1. Dịch STT cho từng đoạn
                 if (!rec.transcript) {
                     const localPath = path.join(process.cwd(), 'uploads', 'recordings', rec.file_name);
-                    const transcript = await SttService.transcribe(localPath, "audio/webm"); // mock mime
+                    const transcript = await SttService.transcribe(localPath, "audio/webm");
                     rec.transcript = transcript || "[Bóc băng thất bại]";
                     rec.status = "COMPLETED";
                     await rec.save();
                 }
 
-                // Nhóm lại
                 const qId = rec.question_id.toString();
                 if (!recordingsByQuestion[qId]) recordingsByQuestion[qId] = [];
                 recordingsByQuestion[qId].push(rec);
             }
 
-            // Tiến hành Evaluation cho từng câu hỏi
-            // Lấy session để có job_position_id cho RAG filter
-            const session = await InterviewSession.findById(session_id);
             const jobPositionId = session?.job_position_id;
 
             for (const [qId, recs] of Object.entries(recordingsByQuestion)) {
+                // CRITICAL CHECK 2: Kiểm tra lại DB trước mỗi lượt gọi AI chấm điểm (tác vụ tốn tiền/thời gian nhất)
+                session = await InterviewSession.findById(session_id);
+                if (session?.status === "cancelled") {
+                    console.log(`[Worker] Phát hiện session ${session_id} bị hủy trước khi gọi Gemini chấm điểm. Dừng lại.`);
+                    return { status: "skipped_cancelled" };
+                }
+
                 // Chỉ lấy câu trả lời của CANDIDATE để chấm điểm
                 const candidateRecs = recs.filter(r => r.user_role === "CANDIDATE");
                 if (candidateRecs.length === 0) continue;
 
                 const candidateAnswer = candidateRecs.map(r => r.transcript).join(" ");
-                
+
                 const sessionQuestion = await SessionQuestion.findById(qId).populate("question_bank_id");
                 if (!sessionQuestion) continue;
 
@@ -95,14 +107,13 @@ export const evaluationWorker = new Worker(
                 const questionContent = sessionQuestion.content;
 
                 // --- BƯỚC RAG (Retrieval-Augmented Generation) ---
-                // Tìm Document Chunks liên quan đến câu hỏi này
                 let ragContext = "";
                 try {
                     const questionEmbedding = await GeminiService.generateEmbedding(questionContent);
                     const pipeline: any[] = [
                         {
                             $vectorSearch: {
-                                index: "vector_index", // Tên index trên MongoDB Atlas
+                                index: "vector_index",
                                 path: "embedding",
                                 queryVector: questionEmbedding,
                                 numCandidates: 50,
@@ -111,10 +122,9 @@ export const evaluationWorker = new Worker(
                         }
                     ];
 
-                    // FEA-3.5 RAG Isolation: Chỉ lấy DocumentChunks thuộc về Job Position hiện tại
                     if (jobPositionId) {
-                        pipeline[0].$vectorSearch.filter = { 
-                            job_position_id: new mongoose.Types.ObjectId(jobPositionId.toString()) 
+                        pipeline[0].$vectorSearch.filter = {
+                            job_position_id: new mongoose.Types.ObjectId(jobPositionId.toString())
                         };
                     }
 
@@ -124,33 +134,44 @@ export const evaluationWorker = new Worker(
                     console.warn(`[Worker] Cảnh báo: Vector Search RAG thất bại hoặc chưa config Atlas. Bỏ qua RAG Context.`);
                 }
 
-                // Gọi Gemini để chấm điểm (có Retry 3 lần nằm sẵn trong Job của BullMQ)
                 console.log(`[Worker] Đang gọi Gemini chấm điểm câu: ${questionContent}`);
                 const evalResult = await evaluateCandidateAnswer(questionContent, expectedAnswer, candidateAnswer, ragContext);
 
                 if (evalResult) {
                     await EvaluationResult.create({
-                        session_id, // Gắn thêm session_id
+                        session_id,
                         question_id: qId,
                         score: evalResult.score,
                         feedback: evalResult.feedback,
                         strengths: evalResult.strengths,
                         weaknesses: evalResult.weaknesses,
-                        version: is_reevaluation ? 2 : 1 // Logic versioning cơ bản
+                        version: is_reevaluation ? 2 : 1
                     });
                     console.log(`[Worker] Chấm điểm thành công cho câu hỏi ${qId}: ${evalResult.score}/100`);
                 }
             }
 
+            // CRITICAL CHECK 3: Chỉ cho phép đổi trạng thái thành processed nếu trạng thái hiện tại KHÔNG PHẢI là cancelled
+            // (Bạn nên kiểm tra cả nơi đang lắng nghe event "completed" của worker này xem có đang tự ý đổi status bừa bãi không nhé)
+            const finalSession = await InterviewSession.findById(session_id);
+            if (finalSession && finalSession.status !== "cancelled") {
+                finalSession.status = "processed";
+                await finalSession.save();
+                console.log(`[Worker] Đã cập nhật trạng thái session ${session_id} sang 'processed'.`);
+            } else {
+                console.log(`[Worker] Session ${session_id} đã bị cancel trước đó. Giữ nguyên trạng thái cancelled.`);
+            }
+
             console.log(`[Worker] Hoàn tất toàn bộ chuỗi AI Pipeline cho Session ${session_id}.`);
+            return { status: "success" };
         } catch (error: any) {
             console.error(`[Worker] Lỗi nghiêm trọng khi xử lý AI Pipeline:`, error.message);
-            throw error; // Quăng lỗi để BullMQ tự động Retry
+            throw error;
         }
     },
-    { 
+    {
         connection: connection as any,
-        concurrency: 5 // Cho phép xử lý 5 jobs đồng thời
+        concurrency: 5
     }
 );
 
@@ -162,9 +183,7 @@ evaluationWorker.on("failed", (job, err) => {
     console.error(`[BullMQ] Job ${job?.id} bị lỗi: ${err.message}`);
 });
 
-// Chặn BullMQ in ra hàng đống log kết nối dơ bẩn khi Redis sập
 evaluationWorker.on("error", (err) => {
-    // Chỉ im lặng bỏ qua nếu là lỗi kết nối mạng (ECONNREFUSED)
     if (err.message.includes('ECONNREFUSED')) return;
     console.error(`[BullMQ] Lỗi nội bộ Worker: ${err.message}`);
 });

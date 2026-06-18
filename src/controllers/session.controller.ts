@@ -189,16 +189,24 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
         const { id } = req.params;
         const { status } = req.body;
 
-        const updatedSession = await InterviewSession.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        );
-
-        if (!updatedSession) {
+        // Lấy thông tin session hiện tại từ DB trước khi cập nhật
+        const currentSession = await InterviewSession.findById(id);
+        if (!currentSession) {
             res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
             return;
         }
+
+        // NGĂN CHẶN: Nếu session đã bị CANCELLED, không cho phép đổi ngược lại thành các trạng thái khác (trừ khi có logic đặc biệt)
+        if (currentSession.status === "cancelled" && status !== "cancelled") {
+            res.status(400).json({
+                message: "Không thể thay đổi trạng thái vì buổi phỏng vấn này đã bị hủy trước đó."
+            });
+            return;
+        }
+
+        // Tiến hành cập nhật trạng thái mới
+        currentSession.status = status;
+        const updatedSession = await currentSession.save();
 
         // Kích hoạt AI Pipeline khi kết thúc phỏng vấn
         if (status === "COMPLETED") {
@@ -214,9 +222,11 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
                 console.log(`[Queue] Đã đưa Session ${id} vào Hàng đợi chấm điểm AI.`);
             } catch (queueErr) {
                 console.warn("[Queue] Không thể đưa Job vào hàng đợi. Có thể do Redis chưa bật:", queueErr);
-                // Không throw error để API vẫn trả về 200 (vì status đã được lưu thành công)
             }
         }
+
+        // TÙY CHỌN: Nếu trạng thái gửi lên là CANCELLED (hoặc trạng thái hủy của bạn), 
+        // bạn có thể chủ động tìm job trong BullMQ để xóa/hủy, giảm tải cho worker nếu muốn.
 
         res.json({ data: updatedSession });
     } catch (error) {
