@@ -104,7 +104,7 @@ export const deleteQuestion = async (req: Request, res: Response): Promise<void>
     }
 };
 
-// 5. Import câu hỏi từ file PDF (Sử dụng model QuestionBank mới)
+// 5. Import câu hỏi từ file PDF (Sử dụng model QuestionBank mới và tối ưu Error Handling)
 export const importQuestionsFromPDF = async (req: Request, res: Response): Promise<void> => {
     try {
         if (!req.file) {
@@ -116,8 +116,9 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
         const { category_id } = req.body;
         if (!category_id) {
             res.status(400).json({ message: "Vui lòng cung cấp category_id cho bộ câu hỏi này" });
-            // Xóa file tạm ngay nếu lỗi
-            fs.unlinkSync(req.file.path);
+            if (fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
             return;
         }
 
@@ -126,6 +127,15 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
 
         console.log("[QuestionBank] Đang gửi PDF sang Gemini API để phân tích bộ câu hỏi...");
         const parsedQuestions = await GeminiService.parseQuestionPDF(fileBuffer);
+
+        if (!parsedQuestions || !Array.isArray(parsedQuestions)) {
+            res.status(400).json({ message: "Gemini trả về dữ liệu không đúng cấu trúc mảng câu hỏi" });
+            if (fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            return;
+        }
+
         console.log(`[QuestionBank] Trích xuất thành công ${parsedQuestions.length} câu hỏi.`);
 
         const questionsToSave = [];
@@ -138,8 +148,8 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
             }
 
             questionsToSave.push({
-                category_id, 
-                assessed_skills: [], 
+                category_id,
+                assessed_skills: [],
                 content: q.content,
                 expected_answer: q.expected_answer,
                 embedding,
@@ -148,9 +158,10 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
 
         const savedQuestions = await QuestionBank.insertMany(questionsToSave);
 
-        fs.unlink(req.file.path, (err) => {
-            if (err) console.error("[QuestionBank] Lỗi khi xoá file PDF tạm:", err.message);
-        });
+        // Xóa file tạm an toàn sau khi hoàn tất pipeline
+        if (fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
 
         res.status(201).json({
             message: "Import câu hỏi từ PDF thành công",
@@ -158,11 +169,26 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
         });
     } catch (error: any) {
         console.error("[QuestionBank] Lỗi khi import PDF:", error);
+
+        // Dọn dẹp file tạm nếu quá trình xử lý xảy ra crash giữa chừng
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (unlinkErr) {
+                console.error("[QuestionBank] Không thể xóa file tạm trong khối catch:", unlinkErr);
+            }
+        }
+
         if (error.message && error.message.includes("GEMINI_API_KEY")) {
             res.status(400).json({ message: "Phân tích thất bại: Chưa cấu hình GEMINI_API_KEY trong file .env." });
             return;
         }
-        res.status(500).json({ message: "Lỗi hệ thống khi phân tích PDF" });
+
+        // Trả thêm error chi tiết để dễ dàng tìm lỗi (Ví dụ: Lỗi token hết hạn, sai JSON format, v.v.)
+        res.status(500).json({
+            message: "Lỗi hệ thống khi phân tích PDF",
+            error: error.message || error
+        });
     }
 };
 
@@ -184,7 +210,7 @@ export const vectorSearch = async (req: Request, res: Response): Promise<void> =
             const results = await QuestionBank.aggregate([
                 {
                     $vectorSearch: {
-                        index: "vector_index", 
+                        index: "vector_index",
                         path: "embedding",
                         queryVector: queryEmbedding,
                         numCandidates: 100,
