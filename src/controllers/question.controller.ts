@@ -112,13 +112,10 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
             return;
         }
 
-        // Yêu cầu FE phải truyền category_id khi upload file để biết các câu hỏi này thuộc danh mục nào
         const { category_id } = req.body;
         if (!category_id) {
             res.status(400).json({ message: "Vui lòng cung cấp category_id cho bộ câu hỏi này" });
-            if (fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
-            }
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
             return;
         }
 
@@ -130,35 +127,35 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
 
         if (!parsedQuestions || !Array.isArray(parsedQuestions)) {
             res.status(400).json({ message: "Gemini trả về dữ liệu không đúng cấu trúc mảng câu hỏi" });
-            if (fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
-            }
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
             return;
         }
 
-        console.log(`[QuestionBank] Trích xuất thành công ${parsedQuestions.length} câu hỏi.`);
+        console.log(`[QuestionBank] Trích xuất thành công ${parsedQuestions.length} câu hỏi từ AI.`);
 
         const questionsToSave = [];
         for (const q of parsedQuestions) {
             let embedding: number[] = [];
             try {
-                embedding = await GeminiService.generateEmbedding(q.expected_answer);
+                // Thử tạo vector embedding, nếu model text-embedding-004 chưa bật, bọc lót mảng rỗng để không crash hệ thống
+                embedding = await GeminiService.generateEmbedding(q.expected_answer || q.content);
             } catch (err: any) {
-                console.warn(`[QuestionBank] Không tạo được embedding cho câu hỏi: "${q.content.substring(0, 30)}...": ${err.message}`);
+                console.warn(`[QuestionBank] Bỏ qua lỗi sinh embedding: ${err.message}`);
+                embedding = []; // Gán mảng rỗng làm fallback để lưu được câu hỏi vào DB
             }
 
             questionsToSave.push({
                 category_id,
-                assessed_skills: [],
+                assessed_skills: [], // Mặc định để rỗng để tránh lệch định dạng model DB
                 content: q.content,
                 expected_answer: q.expected_answer,
-                embedding,
+                embedding: embedding,
             });
         }
 
+        // Thực hiện lưu an toàn vào DB
         const savedQuestions = await QuestionBank.insertMany(questionsToSave);
 
-        // Xóa file tạm an toàn sau khi hoàn tất pipeline
         if (fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
@@ -168,23 +165,10 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
             data: savedQuestions
         });
     } catch (error: any) {
-        console.error("[QuestionBank] Lỗi khi import PDF:", error);
-
-        // Dọn dẹp file tạm nếu quá trình xử lý xảy ra crash giữa chừng
+        console.error("[QuestionBank] Lỗi hệ thống khi xử lý PDF:", error);
         if (req.file && fs.existsSync(req.file.path)) {
-            try {
-                fs.unlinkSync(req.file.path);
-            } catch (unlinkErr) {
-                console.error("[QuestionBank] Không thể xóa file tạm trong khối catch:", unlinkErr);
-            }
+            try { fs.unlinkSync(req.file.path); } catch { }
         }
-
-        if (error.message && error.message.includes("GEMINI_API_KEY")) {
-            res.status(400).json({ message: "Phân tích thất bại: Chưa cấu hình GEMINI_API_KEY trong file .env." });
-            return;
-        }
-
-        // Trả thêm error chi tiết để dễ dàng tìm lỗi (Ví dụ: Lỗi token hết hạn, sai JSON format, v.v.)
         res.status(500).json({
             message: "Lỗi hệ thống khi phân tích PDF",
             error: error.message || error
