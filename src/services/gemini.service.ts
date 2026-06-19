@@ -1,16 +1,16 @@
-import { GoogleGenAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "../config/env";
 
 export class GeminiService {
     // 1. Khởi tạo đối tượng GoogleGenAI dùng chung
-    private static ai: GoogleGenAI | null = null;
+    private static ai: GoogleGenerativeAI | null = null;
 
-    private static getAIInstance(): GoogleGenAI {
+    private static getAIInstance(): GoogleGenerativeAI {
         if (!env.GEMINI_API_KEY) {
             throw new Error("GEMINI_API_KEY is not configured in environment variables.");
         }
         if (!this.ai) {
-            this.ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+            this.ai = new GoogleGenerativeAI(env.GEMINI_API_KEY);
         }
         return this.ai;
     }
@@ -22,13 +22,11 @@ export class GeminiService {
         try {
             const ai = this.getAIInstance();
             const model = ai.getGenerativeModel({
-                model: "text-embedding-004" // Cấu hình model sinh embedding chuẩn 768 chiều
+                model: "text-embedding-004"
             });
 
-            const result = await model.embedContent({
-                content: { parts: [{ text }] },
-                outputDimensionality: 768
-            });
+           
+            const result = await model.embedContent(text);
 
             if (!result.embedding || !result.embedding.values) {
                 throw new Error("Invalid embedding response structure from Gemini SDK");
@@ -47,7 +45,7 @@ export class GeminiService {
     public static async parseQuestionPDF(fileBuffer: Buffer): Promise<any[]> {
         try {
             const ai = this.getAIInstance();
-            // Sử dụng gemini-2.5-flash hoặc gemini-1.5-flash đều chuẩn cú pháp qua SDK
+            // Sử dụng gemini-2.5-flash hoặc gemini-3.5-flash đều chuẩn cú pháp qua SDK
             const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
             const prompt = `Hãy đọc tài liệu PDF đính kèm (có thể là JD tuyển dụng, bài kiểm tra hoặc tài liệu Q&A) và trích xuất hoặc tự thiết kế các câu hỏi phỏng vấn kèm câu trả lời chuẩn (expected answer) tương ứng, phân loại lĩnh vực (domain) và các từ khoá (keywords) bắt buộc ứng viên cần nhắc đến để được điểm tối đa. 
@@ -105,7 +103,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
     public static async transcribeAudio(fileBuffer: Buffer, mimeType: string): Promise<string> {
         try {
             const ai = this.getAIInstance();
-            const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const model = ai.getGenerativeModel({ model: "gemini-3.5-flash" });
 
             const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần tùy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
 
