@@ -5,7 +5,12 @@ import InterviewInvitation from "../models/interview-invitation.model";
 
 export const verifyMagicLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const token = req.query.token as string || req.headers["x-magic-token"] as string;
+        let token = req.query.token as string || req.headers["x-magic-token"] as string;
+
+        // Bổ sung đọc token từ Authorization Header (Bearer <token>)
+        if (!token && req.headers.authorization?.startsWith("Bearer ")) {
+            token = req.headers.authorization.split(" ")[1];
+        }
 
         if (!token) {
             res.status(401).json({ message: "Không tìm thấy Magic Link Token" });

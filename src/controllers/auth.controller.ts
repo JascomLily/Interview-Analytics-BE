@@ -7,10 +7,11 @@ import { generateTokenPair, verifyRefreshToken } from "../utils/jwt.utils";
 const SALT_ROUNDS = 10;
 
 const setRefreshTokenCookie = (res: Response, token: string) => {
+    const isProd = process.env.NODE_ENV === "production";
     res.cookie("refreshToken", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: isProd,
+        sameSite: isProd ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
     });
 };
@@ -156,7 +157,12 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
         }
 
         await User.findByIdAndUpdate(req.user.id, { refreshToken: null });
-        res.clearCookie("refreshToken");
+        const isProd = process.env.NODE_ENV === "production";
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? "none" : "lax"
+        });
 
         res.json({ message: "Logged out successfully" });
     } catch (error) {

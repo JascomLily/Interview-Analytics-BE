@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/JascomLily/Interview-Analytics-BE#readme",
   "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",

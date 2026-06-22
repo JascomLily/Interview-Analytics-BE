@@ -17,11 +17,8 @@ const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
     tls: env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
     retryStrategy(times) {
-        if (times > 3) {
-            console.warn("[Redis] Không thể kết nối Redis. Hàng đợi BullMQ tạm thời vô hiệu hoá.");
-            return null;
-        }
-        return Math.min(times * 50, 2000);
+        // Thử lại vô hạn mỗi 3 giây để tự động kết nối lại khi Redis sẵn sàng
+        return 3000;
     }
 });
 
@@ -72,10 +69,16 @@ export const evaluationWorker = new Worker(
 
                 // 1. Dịch STT cho từng đoạn
                 if (!rec.transcript) {
-                    const localPath = path.join(process.cwd(), 'uploads', 'recordings', rec.file_name);
-                    const transcript = await SttService.transcribe(localPath, "audio/webm");
-                    rec.transcript = transcript || "[Bóc băng thất bại]";
-                    rec.status = "COMPLETED";
+                    try {
+                        const localPath = path.join(process.cwd(), 'uploads', 'recordings', rec.file_name);
+                        const transcript = await SttService.transcribe(localPath, "audio/webm");
+                        rec.transcript = transcript || "[Bóc băng thất bại]";
+                        rec.status = "COMPLETED";
+                    } catch (sttErr: any) {
+                        console.error(`[Worker] Lỗi bóc băng cho recording ${rec._id}:`, sttErr.message);
+                        rec.transcript = "[Bóc băng thất bại]";
+                        rec.status = "FAILED";
+                    }
                     await rec.save();
                 }
 
@@ -87,77 +90,81 @@ export const evaluationWorker = new Worker(
             const jobPositionId = session?.job_position_id;
 
             for (const [qId, recs] of Object.entries(recordingsByQuestion)) {
-                // CRITICAL CHECK 2: Kiểm tra lại DB trước mỗi lượt gọi AI chấm điểm (tác vụ tốn tiền/thời gian nhất)
-                session = await InterviewSession.findById(session_id);
-                if (session?.status === "cancelled") {
-                    console.log(`[Worker] Phát hiện session ${session_id} bị hủy trước khi gọi Gemini chấm điểm. Dừng lại.`);
-                    return { status: "skipped_cancelled" };
-                }
-
-                // Chỉ lấy câu trả lời của CANDIDATE để chấm điểm
-                const candidateRecs = recs.filter(r => r.user_role === "CANDIDATE");
-                if (candidateRecs.length === 0) continue;
-
-                const candidateAnswer = candidateRecs.map(r => r.transcript).join(" ");
-
-                const sessionQuestion = await SessionQuestion.findById(qId).populate("question_bank_id");
-                if (!sessionQuestion) continue;
-
-                const expectedAnswer = sessionQuestion.expected_answer;
-                const questionContent = sessionQuestion.content;
-
-                // --- BƯỚC RAG (Retrieval-Augmented Generation) ---
-                let ragContext = "";
                 try {
-                    const questionEmbedding = await OpenRouterService.generateEmbedding(questionContent);
-                    const pipeline: any[] = [
-                        {
-                            $vectorSearch: {
-                                index: "vector_index",
-                                path: "embedding",
-                                queryVector: questionEmbedding,
-                                numCandidates: 50,
-                                limit: 3
-                            }
-                        }
-                    ];
-
-                    if (jobPositionId) {
-                        pipeline[0].$vectorSearch.filter = {
-                            job_position_id: new mongoose.Types.ObjectId(jobPositionId.toString())
-                        };
+                    // CRITICAL CHECK 2: Kiểm tra lại DB trước mỗi lượt gọi AI chấm điểm (tác vụ tốn tiền/thời gian nhất)
+                    session = await InterviewSession.findById(session_id);
+                    if (session?.status === "cancelled") {
+                        console.log(`[Worker] Phát hiện session ${session_id} bị hủy trước khi gọi AI chấm điểm. Dừng lại.`);
+                        return { status: "skipped_cancelled" };
                     }
 
-                    const relevantChunks = await DocumentChunk.aggregate(pipeline);
-                    ragContext = relevantChunks.map(chunk => chunk.content).join("\n\n");
-                } catch (ragError: any) {
-                    console.warn(`[Worker] Cảnh báo: Vector Search RAG thất bại hoặc chưa config Atlas. Bỏ qua RAG Context.`);
-                }
+                    // Chỉ lấy câu trả lời của CANDIDATE để chấm điểm
+                    const candidateRecs = recs.filter(r => r.user_role === "CANDIDATE");
+                    if (candidateRecs.length === 0) continue;
 
-                console.log(`[Worker] Đang gọi Gemini chấm điểm câu: ${questionContent}`);
-                const evalResult = await evaluateCandidateAnswer(questionContent, expectedAnswer, candidateAnswer, ragContext);
+                    const candidateAnswer = candidateRecs.map(r => r.transcript).join(" ");
 
-                if (evalResult) {
-                    await EvaluationResult.create({
-                        session_id,
-                        question_id: qId,
-                        score: evalResult.score,
-                        feedback: evalResult.feedback,
-                        strengths: evalResult.strengths,
-                        weaknesses: evalResult.weaknesses,
-                        version: is_reevaluation ? 2 : 1
-                    });
-                    console.log(`[Worker] Chấm điểm thành công cho câu hỏi ${qId}: ${evalResult.score}/100`);
+                    const sessionQuestion = await SessionQuestion.findById(qId).populate("question_bank_id");
+                    if (!sessionQuestion) continue;
+
+                    const expectedAnswer = sessionQuestion.expected_answer;
+                    const questionContent = sessionQuestion.content;
+
+                    // --- BƯỚC RAG (Retrieval-Augmented Generation) ---
+                    let ragContext = "";
+                    try {
+                        const questionEmbedding = await OpenRouterService.generateEmbedding(questionContent);
+                        const pipeline: any[] = [
+                            {
+                                $vectorSearch: {
+                                    index: "vector_index",
+                                    path: "embedding",
+                                    queryVector: questionEmbedding,
+                                    numCandidates: 50,
+                                    limit: 3
+                                }
+                            }
+                        ];
+
+                        if (jobPositionId) {
+                            pipeline[0].$vectorSearch.filter = {
+                                job_position_id: new mongoose.Types.ObjectId(jobPositionId.toString())
+                            };
+                        }
+
+                        const relevantChunks = await DocumentChunk.aggregate(pipeline);
+                        ragContext = relevantChunks.map(chunk => chunk.content).join("\n\n");
+                    } catch (ragError: any) {
+                        console.warn(`[Worker] Cảnh báo: Vector Search RAG thất bại hoặc chưa config Atlas. Bỏ qua RAG Context.`);
+                    }
+
+                    console.log(`[Worker] Đang gọi Gemini chấm điểm câu: ${questionContent}`);
+                    const evalResult = await evaluateCandidateAnswer(questionContent, expectedAnswer, candidateAnswer, ragContext);
+
+                    if (evalResult) {
+                        await EvaluationResult.create({
+                            session_id,
+                            question_id: qId,
+                            score: evalResult.score,
+                            feedback: evalResult.feedback,
+                            strengths: evalResult.strengths,
+                            weaknesses: evalResult.weaknesses,
+                            version: is_reevaluation ? 2 : 1
+                        });
+                        console.log(`[Worker] Chấm điểm thành công cho câu hỏi ${qId}: ${evalResult.score}/100`);
+                    }
+                } catch (evalErr: any) {
+                    console.error(`[Worker] Lỗi chấm điểm câu hỏi ${qId}:`, evalErr.message);
                 }
             }
 
-            // CRITICAL CHECK 3: Chỉ cho phép đổi trạng thái thành processed nếu trạng thái hiện tại KHÔNG PHẢI là cancelled
+            // CRITICAL CHECK 3: Chỉ cho phép đổi trạng thái thành COMPLETED nếu trạng thái hiện tại KHÔNG PHẢI là cancelled
             // (Bạn nên kiểm tra cả nơi đang lắng nghe event "completed" của worker này xem có đang tự ý đổi status bừa bãi không nhé)
             const finalSession = await InterviewSession.findById(session_id);
             if (finalSession && finalSession.status !== "cancelled") {
-                finalSession.status = "processed";
+                finalSession.status = "COMPLETED";
                 await finalSession.save();
-                console.log(`[Worker] Đã cập nhật trạng thái session ${session_id} sang 'processed'.`);
+                console.log(`[Worker] Đã cập nhật trạng thái session ${session_id} sang 'COMPLETED'.`);
             } else {
                 console.log(`[Worker] Session ${session_id} đã bị cancel trước đó. Giữ nguyên trạng thái cancelled.`);
             }

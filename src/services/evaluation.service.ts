@@ -42,7 +42,7 @@ export const evaluateCandidateAnswer = async (
     `;
 
     const result = await openai.chat.completions.create({
-      model: "google/gemini-1.5-flash", // Mặc định dùng Gemini 1.5 qua OpenRouter
+      model: env.OPENROUTER_EVALUATION_MODEL, // Lấy model từ biến môi trường
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }]
     });

@@ -43,8 +43,12 @@ const findRoomBySocketId = (socketId: string): string | undefined => {
 export const initializeSocket = (httpServer: HttpServer): Server => {
     const io = new Server(httpServer, {
         cors: {
-            origin: env.CLIENT_URL,
+            origin: (origin, callback) => {
+                // Cho phép mọi nguồn gốc kết nối động tương tự express cors(origin: true)
+                callback(null, true);
+            },
             methods: ["GET", "POST"],
+            credentials: true
         },
     });
 

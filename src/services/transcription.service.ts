@@ -11,7 +11,7 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
     const mimeType = "audio/webm";
 
     const response = await openai.chat.completions.create({
-        model: "google/gemini-1.5-flash",
+        model: env.OPENROUTER_MULTIMODAL_MODEL,
         messages: [
             {
                 role: "user",

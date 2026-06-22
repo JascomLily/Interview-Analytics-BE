@@ -85,17 +85,30 @@ export const generatePdfBuffer = async (reportData: any): Promise<Buffer> => {
     // Render HTML từ template EJS
     const htmlContent = ejs.render(reportTemplate, reportData);
 
-    // Khởi chạy Puppeteer
-    // Bắt buộc thêm các cấu hình --no-sandbox để chạy được trên server (như Render/Linux/Docker)
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu"
-        ]
-    });
+    let browser;
+    const isProd = process.env.NODE_ENV === "production" || !!process.env.RENDER;
+
+    if (isProd) {
+        // Trên Render / Production: sử dụng Chromium tải kèm từ @sparticuz/chromium
+        const chromium = require("@sparticuz/chromium");
+        browser = await puppeteer.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+        });
+    } else {
+        // Ở môi trường local: dùng Chromium mặc định của Puppeteer
+        browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu"
+            ]
+        });
+    }
 
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
