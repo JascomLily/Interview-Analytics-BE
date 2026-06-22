@@ -133,25 +133,27 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
 
         console.log(`[QuestionBank] Trích xuất thành công ${parsedQuestions.length} câu hỏi từ AI.`);
 
-        const questionsToSave = [];
-        for (const q of parsedQuestions) {
-            let embedding: number[] = [];
-            try {
-                // Thử tạo vector embedding, nếu model text-embedding-004 chưa bật, bọc lót mảng rỗng để không crash hệ thống
-                embedding = await GeminiService.generateEmbedding(q.expected_answer || q.content);
-            } catch (err: any) {
-                console.warn(`[QuestionBank] Bỏ qua lỗi sinh embedding: ${err.message}`);
-                embedding = []; // Gán mảng rỗng làm fallback để lưu được câu hỏi vào DB
-            }
+        // Tối ưu hóa: Sinh embedding song song để giảm thời gian xử lý, tránh Render bị timeout 30s
+        const questionsToSave = await Promise.all(
+            parsedQuestions.map(async (q) => {
+                let embedding: number[] = [];
+                try {
+                    // Thử tạo vector embedding song song
+                    embedding = await GeminiService.generateEmbedding(q.expected_answer || q.content);
+                } catch (err: any) {
+                    console.warn(`[QuestionBank] Bỏ qua lỗi sinh embedding: ${err.message}`);
+                    embedding = []; // Gán mảng rỗng làm fallback để lưu được câu hỏi vào DB
+                }
 
-            questionsToSave.push({
-                category_id,
-                assessed_skills: [], // Mặc định để rỗng để tránh lệch định dạng model DB
-                content: q.content,
-                expected_answer: q.expected_answer,
-                embedding: embedding,
-            });
-        }
+                return {
+                    category_id,
+                    assessed_skills: [], // Mặc định để rỗng để tránh lệch định dạng model DB
+                    content: q.content,
+                    expected_answer: q.expected_answer,
+                    embedding: embedding,
+                };
+            })
+        );
 
         // Thực hiện lưu an toàn vào DB
         const savedQuestions = await QuestionBank.insertMany(questionsToSave);

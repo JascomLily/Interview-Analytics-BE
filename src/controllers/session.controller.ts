@@ -7,6 +7,7 @@ import InterviewSession from "../models/interview-session.model";
 import QuestionBank from "../models/question-bank.model";
 import SessionQuestion from "../models/session-question.model";
 import InterviewInvitation from "../models/interview-invitation.model";
+import Recording from "../models/recording.model";
 
 // 1. Lấy danh sách phiên phỏng vấn
 export const getSessions = async (req: Request, res: Response): Promise<void> => {
@@ -318,5 +319,32 @@ export const createFollowUpQuestion = async (req: Request, res: Response): Promi
     } catch (error) {
         console.error("[Session] Lỗi tạo câu hỏi Follow-up:", error);
         res.status(500).json({ message: "Lỗi hệ thống khi thêm câu hỏi" });
+    }
+};
+
+// 3.6 Xóa phiên phỏng vấn (bao gồm cả câu hỏi và ghi âm liên quan)
+export const deleteSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+
+        const session = await InterviewSession.findById(id);
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        // Thực hiện xóa phiên phỏng vấn
+        await InterviewSession.findByIdAndDelete(id);
+
+        // Xóa các câu hỏi của session này
+        await SessionQuestion.deleteMany({ session_id: id });
+
+        // Xóa các file ghi âm của session này
+        await Recording.deleteMany({ session_id: id });
+
+        res.json({ message: "Xóa phiên phỏng vấn thành công", data: null });
+    } catch (error) {
+        console.error("[Session] Lỗi xóa phiên:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi xóa phiên phỏng vấn" });
     }
 };
