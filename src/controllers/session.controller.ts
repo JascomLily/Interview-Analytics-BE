@@ -35,7 +35,17 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
             .populate("candidate_profile_id", "full_name email")
             .sort({ createdAt: -1 });
 
-        res.json({ data: sessions });
+        const sessionsWithTokens = await Promise.all(
+            sessions.map(async (s) => {
+                const invitation = await InterviewInvitation.findOne({ session_id: s._id });
+                return {
+                    ...s.toJSON(),
+                    magic_link_token: invitation ? invitation.magic_link_token : null,
+                };
+            })
+        );
+
+        res.json({ data: sessionsWithTokens });
     } catch (error) {
         console.error("[Session] Lỗi lấy danh sách:", error);
         res.status(500).json({ message: "Lỗi khi lấy danh sách buổi phỏng vấn" });
