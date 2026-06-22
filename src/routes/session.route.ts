@@ -6,7 +6,8 @@ import {
   updateSessionStatus,
   updateSession,
   sendInvitation,
-  createFollowUpQuestion
+  createFollowUpQuestion,
+  deleteSession
 } from "../controllers/session.controller";
 import { verifyToken } from "../middlewares/auth.middleware";
 import { authorizeRoles } from "../middlewares/rbac.middleware";
@@ -39,5 +40,6 @@ router.put("/:id", validateObjectId, authorizeRoles("HR"), updateSession);
 router.put("/:id/status", validateObjectId, authorizeRoles("HR"), updateSessionStatus);
 router.post("/:id/send-invitation", validateObjectId, authorizeRoles("HR"), sendInvitation);
 router.post("/:id/follow-up-question", validateObjectId, authorizeRoles("HR"), createFollowUpQuestion);
+router.delete("/:id", validateObjectId, authorizeRoles("HR"), deleteSession);
 
 export default router;

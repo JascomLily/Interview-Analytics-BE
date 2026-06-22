@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import fs from "fs";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import mongoose from "mongoose";
 import KnowledgeDocument from "../models/knowledge-document.model";
@@ -23,6 +23,26 @@ const splitTextIntoChunks = (text: string, maxChunkSize = 1000, overlap = 100): 
 };
 
 export const processKnowledgeDocument = async (req: Request, res: Response): Promise<void> => {
+    // #swagger.consumes = ['multipart/form-data']
+    /*  #swagger.parameters['file'] = {
+            in: 'formData',
+            type: 'file',
+            required: true,
+            description: 'Tải lên tài liệu tri thức (PDF, DOCX, TXT)'
+        }
+        #swagger.parameters['job_position_id'] = {
+            in: 'formData',
+            type: 'string',
+            required: true,
+            description: 'ID của Job Position'
+        }
+        #swagger.parameters['title'] = {
+            in: 'formData',
+            type: 'string',
+            required: false,
+            description: 'Tiêu đề tài liệu'
+        }
+    */
     try {
         if (!req.file) {
             res.status(400).json({ message: "Không tìm thấy file được upload" });
@@ -58,8 +78,10 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
         let extractedText = "";
 
         if (req.file.mimetype === "application/pdf") {
-            const pdfData = await pdfParse(fileBuffer);
+            const parser = new PDFParse({ data: fileBuffer });
+            const pdfData = await parser.getText();
             extractedText = pdfData.text;
+            await parser.destroy();
 } else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
             const result = await mammoth.extractRawText({ buffer: fileBuffer });
             extractedText = result.value;
@@ -141,5 +163,43 @@ export const getKnowledgeDocuments = async (req: Request, res: Response): Promis
         res.json({ data: documents });
     } catch (error) {
         res.status(500).json({ message: "Lỗi lấy danh sách tài liệu" });
+    }
+};
+
+export const deleteKnowledgeDocument = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = req.params.id as string;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            res.status(400).json({ message: "ID không hợp lệ" });
+            return;
+        }
+
+        const doc = await KnowledgeDocument.findById(id);
+        if (!doc) {
+            // Document đã bị xóa trước đó hoặc không tồn tại → trả 200 để FE refresh UI
+            await DocumentChunk.deleteMany({ document_id: id });
+            res.json({ message: "Tài liệu đã được xóa trước đó" });
+            return;
+        }
+
+        // Xóa file vật lý nếu tồn tại
+        if (doc.file_url && fs.existsSync(doc.file_url)) {
+            try {
+                fs.unlinkSync(doc.file_url);
+            } catch (fsErr: any) {
+                console.error("[RAG] Lỗi xóa file vật lý:", fsErr.message);
+            }
+        }
+
+        // Xóa các chunk vector embeddings liên quan
+        await DocumentChunk.deleteMany({ document_id: doc._id });
+
+        // Xóa bản ghi tài liệu
+        await KnowledgeDocument.findByIdAndDelete(doc._id);
+
+        res.json({ message: "Xóa tài liệu và dữ liệu vector RAG thành công" });
+    } catch (error: any) {
+        console.error("[RAG] Lỗi khi xóa tài liệu:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi xóa tài liệu tri thức" });
     }
 };

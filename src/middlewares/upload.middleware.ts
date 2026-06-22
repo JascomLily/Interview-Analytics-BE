@@ -2,12 +2,11 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
-const DOCS_DIR = path.join(UPLOADS_DIR, "documents"); 
+const DOCS_DIR = path.join(UPLOADS_DIR, "documents");
 const RECORDINGS_DIR = path.join(UPLOADS_DIR, "recordings");
 
-
+// Tự động khởi tạo thư mục vật lý an toàn
 [DOCS_DIR, RECORDINGS_DIR].forEach(dir => {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
@@ -19,9 +18,11 @@ const storage = multer.diskStorage({
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "text/plain"
         ];
+        // Nếu là tài liệu tri thức thì ném vào thư mục documents
         if (docTypes.includes(file.mimetype)) {
             cb(null, DOCS_DIR);
         } else {
+            // Nếu là file ghi âm ghi hình (audio/webm, audio/wav...) thì ném thẳng vào recordings
             cb(null, RECORDINGS_DIR);
         }
     },
@@ -31,10 +32,9 @@ const storage = multer.diskStorage({
     },
 });
 
-
 export const upload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 } 
+    limits: { fileSize: 10 * 1024 * 1024 } // Giới hạn 10MB
 });
 
 export default upload;

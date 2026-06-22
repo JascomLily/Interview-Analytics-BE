@@ -7,6 +7,7 @@ import InterviewSession from "../models/interview-session.model";
 import QuestionBank from "../models/question-bank.model";
 import SessionQuestion from "../models/session-question.model";
 import InterviewInvitation from "../models/interview-invitation.model";
+import Recording from "../models/recording.model";
 
 // 1. Lấy danh sách phiên phỏng vấn
 export const getSessions = async (req: Request, res: Response): Promise<void> => {
@@ -189,16 +190,24 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
         const { id } = req.params;
         const { status } = req.body;
 
-        const updatedSession = await InterviewSession.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        );
-
-        if (!updatedSession) {
+        // Lấy thông tin session hiện tại từ DB trước khi cập nhật
+        const currentSession = await InterviewSession.findById(id);
+        if (!currentSession) {
             res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
             return;
         }
+
+        // NGĂN CHẶN: Nếu session đã bị CANCELLED, không cho phép đổi ngược lại thành các trạng thái khác (trừ khi có logic đặc biệt)
+        if (currentSession.status === "cancelled" && status !== "cancelled") {
+            res.status(400).json({
+                message: "Không thể thay đổi trạng thái vì buổi phỏng vấn này đã bị hủy trước đó."
+            });
+            return;
+        }
+
+        // Tiến hành cập nhật trạng thái mới
+        currentSession.status = status;
+        const updatedSession = await currentSession.save();
 
         // Kích hoạt AI Pipeline khi kết thúc phỏng vấn
         if (status === "COMPLETED") {
@@ -214,9 +223,11 @@ export const updateSessionStatus = async (req: Request, res: Response): Promise<
                 console.log(`[Queue] Đã đưa Session ${id} vào Hàng đợi chấm điểm AI.`);
             } catch (queueErr) {
                 console.warn("[Queue] Không thể đưa Job vào hàng đợi. Có thể do Redis chưa bật:", queueErr);
-                // Không throw error để API vẫn trả về 200 (vì status đã được lưu thành công)
             }
         }
+
+        // TÙY CHỌN: Nếu trạng thái gửi lên là CANCELLED (hoặc trạng thái hủy của bạn), 
+        // bạn có thể chủ động tìm job trong BullMQ để xóa/hủy, giảm tải cho worker nếu muốn.
 
         res.json({ data: updatedSession });
     } catch (error) {
@@ -308,5 +319,32 @@ export const createFollowUpQuestion = async (req: Request, res: Response): Promi
     } catch (error) {
         console.error("[Session] Lỗi tạo câu hỏi Follow-up:", error);
         res.status(500).json({ message: "Lỗi hệ thống khi thêm câu hỏi" });
+    }
+};
+
+// 3.6 Xóa phiên phỏng vấn (bao gồm cả câu hỏi và ghi âm liên quan)
+export const deleteSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+
+        const session = await InterviewSession.findById(id);
+        if (!session) {
+            res.status(404).json({ message: "Không tìm thấy phiên phỏng vấn" });
+            return;
+        }
+
+        // Thực hiện xóa phiên phỏng vấn
+        await InterviewSession.findByIdAndDelete(id);
+
+        // Xóa các câu hỏi của session này
+        await SessionQuestion.deleteMany({ session_id: id });
+
+        // Xóa các file ghi âm của session này
+        await Recording.deleteMany({ session_id: id });
+
+        res.json({ message: "Xóa phiên phỏng vấn thành công", data: null });
+    } catch (error) {
+        console.error("[Session] Lỗi xóa phiên:", error);
+        res.status(500).json({ message: "Lỗi hệ thống khi xóa phiên phỏng vấn" });
     }
 };

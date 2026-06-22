@@ -1,60 +1,74 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "../config/env";
 
 export class GeminiService {
-  private static getApiKey(): string {
-    if (!env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured in environment variables.");
+    // 1. Khởi tạo đối tượng GoogleGenAI dùng chung
+    private static ai: GoogleGenerativeAI | null = null;
+
+    private static getAIInstance(): GoogleGenerativeAI {
+        if (!env.GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is not configured in environment variables.");
+        }
+        if (!this.ai) {
+            this.ai = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+        }
+        return this.ai;
     }
-    return env.GEMINI_API_KEY;
-  }
 
-  /**
-   * Tạo vector embedding 768 chiều cho một đoạn văn bản sử dụng text-embedding-004.
-   */
-  public static async generateEmbedding(text: string): Promise<number[]> {
-    try {
-      const apiKey = this.getApiKey();
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "models/text-embedding-004",
-          content: {
-            parts: [{ text }],
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini embedding API error: ${response.statusText} - ${errorText}`);
-      }
-
-      const result = await response.json() as any;
-      if (!result.embedding || !result.embedding.values) {
-        throw new Error("Invalid embedding response structure from Gemini API");
-      }
-
-      return result.embedding.values;
-    } catch (error: any) {
-      console.error("Error in generateEmbedding:", error.message);
-      throw error;
+    /**
+     * Tự động thử lại khi API của Google gặp lỗi quá tải 503 hoặc 429
+     */
+    private static async callWithRetry(modelInstance: any, payload: any, retries = 3, delay = 2000): Promise<any> {
+        while (retries > 0) {
+            try {
+                return await modelInstance.generateContent(payload);
+            } catch (error: any) {
+                retries--;
+                const errorStr = error.message || "";
+                // Nếu dính lỗi 503 (Service Unavailable) hoặc 429 (Too Many Requests), tiến hành đợi rồi thử lại
+                if (retries > 0 && (errorStr.includes("503") || errorStr.includes("429") || errorStr.includes("demand"))) {
+                    console.warn(`[Gemini] Server đang nghẽn hoặc quá tải. Đang thử lại sau ${delay}ms... (Còn ${retries} lần thử)`);
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2; // Tăng gấp đôi thời gian chờ cho lần sau
+                } else {
+                    throw error;
+                }
+            }
+        }
     }
-  }
 
-  /**
-   * Gửi file PDF cho Gemini 3.5 Flash để trích xuất/thiết kế bộ câu hỏi.
-   */
-  public static async parseQuestionPDF(fileBuffer: Buffer): Promise<any[]> {
-    try {
-      const apiKey = this.getApiKey();
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+    /**
+     * Tạo vector embedding 768 chiều cho một đoạn văn bản sử dụng text-embedding-004.
+     */
+    public static async generateEmbedding(text: string): Promise<number[]> {
+        try {
+            const ai = this.getAIInstance();
+            const model = ai.getGenerativeModel({
+                model: "text-embedding-004"
+            });
 
-      const prompt = `Hãy đọc tài liệu PDF đính kèm (có thể là JD tuyển dụng, bài kiểm tra hoặc tài liệu Q&A) và trích xuất hoặc tự thiết kế các câu hỏi phỏng vấn kèm câu trả lời chuẩn (expected answer) tương ứng, phân loại lĩnh vực (domain) và các từ khoá (keywords) bắt buộc ứng viên cần nhắc đến để được điểm tối đa. 
+            const result = await model.embedContent(text);
+
+            if (!result.embedding || !result.embedding.values) {
+                throw new Error("Invalid embedding response structure from Gemini SDK");
+            }
+
+            return result.embedding.values;
+        } catch (error: any) {
+            console.error("Error in generateEmbedding:", error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Gửi file PDF cho Gemini Flash để trích xuất/thiết kế bộ câu hỏi.
+     */
+    public static async parseQuestionPDF(fileBuffer: Buffer): Promise<any[]> {
+        try {
+            const ai = this.getAIInstance();
+            const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+            const prompt = `Hãy đọc tài liệu PDF đính kèm (có thể là JD tuyển dụng, bài kiểm tra hoặc tài liệu Q&A) và trích xuất hoặc tự thiết kế các câu hỏi phỏng vấn kèm câu trả lời chuẩn (expected answer) tương ứng, phân loại lĩnh vực (domain) và các từ khoá (keywords) bắt buộc ứng viên cần nhắc đến để được điểm tối đa. 
 Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn theo đúng định dạng cấu trúc sau:
 {
   "questions": [
@@ -67,117 +81,78 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
   ]
 }`;
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: "application/pdf",
+            const pdfPart = {
+                inlineData: {
                     data: fileBuffer.toString("base64"),
-                  },
-                },
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        }),
-      });
+                    mimeType: "application/pdf"
+                }
+            };
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini PDF parse API error: ${response.statusText} - ${errorText}`);
-      }
+            // Gọi API thông qua hàm bọc Retry an toàn
+            const result = await this.callWithRetry(model, {
+                contents: [{ role: "user", parts: [pdfPart, { text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            });
 
-      const result = await response.json() as any;
-      const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!responseText) {
-        throw new Error("Empty response from Gemini PDF parser");
-      }
+            const responseText = result.response.text();
+            if (!responseText) {
+                throw new Error("Empty response from Gemini PDF parser");
+            }
 
-      const parsedJSON = JSON.parse(responseText.trim());
-      if (!parsedJSON.questions || !Array.isArray(parsedJSON.questions)) {
-        throw new Error("Invalid response format, missing 'questions' array");
-      }
+            const parsedJSON = JSON.parse(responseText.trim());
 
-      return parsedJSON.questions;
-    } catch (error: any) {
-      console.error("Error in parseQuestionPDF:", error.message);
-      throw error;
+            if (!parsedJSON.questions || !Array.isArray(parsedJSON.questions)) {
+                if (Array.isArray(parsedJSON)) return parsedJSON;
+                throw new Error("Invalid response format, missing 'questions' array");
+            }
+
+            return parsedJSON.questions;
+        } catch (error: any) {
+            console.error("Error in parseQuestionPDF:", error.message);
+            throw error;
+        }
     }
-  }
 
-  /**
-   * Bóc băng âm thanh (STT) dự phòng sử dụng Gemini 3.5 Flash.
-   */
-  public static async transcribeAudio(fileBuffer: Buffer, mimeType: string): Promise<string> {
-    try {
-      const apiKey = this.getApiKey();
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+    /**
+     * Bóc băng âm thanh (STT) dự phòng sử dụng Gemini Flash.
+     */
+    public static async transcribeAudio(fileBuffer: Buffer, mimeType: string): Promise<string> {
+        try {
+            const ai = this.getAIInstance();
+            const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần túy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
+            const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần tùy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
 
-      // Hỗ trợ map một số mime-type nếu cần thiết để đảm bảo Gemini nhận diện đúng định dạng âm thanh
-      let normalizedMimeType = mimeType;
-      if (mimeType === "audio/webm" || mimeType.includes("webm")) {
-        normalizedMimeType = "audio/webm";
-      } else if (mimeType === "audio/wav" || mimeType.includes("wav")) {
-        normalizedMimeType = "audio/wav";
-      } else if (mimeType === "audio/mpeg" || mimeType.includes("mp3")) {
-        normalizedMimeType = "audio/mp3";
-      } else if (mimeType === "audio/ogg" || mimeType.includes("ogg")) {
-        normalizedMimeType = "audio/ogg";
-      }
+            let normalizedMimeType = mimeType;
+            if (mimeType === "audio/webm" || mimeType.includes("webm")) {
+                normalizedMimeType = "audio/webm";
+            } else if (mimeType === "audio/wav" || mimeType.includes("wav")) {
+                normalizedMimeType = "audio/wav";
+            } else if (mimeType === "audio/mpeg" || mimeType.includes("mp3")) {
+                normalizedMimeType = "audio/mp3";
+            } else if (mimeType === "audio/ogg" || mimeType.includes("ogg")) {
+                normalizedMimeType = "audio/ogg";
+            }
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: normalizedMimeType,
+            const audioPart = {
+                inlineData: {
                     data: fileBuffer.toString("base64"),
-                  },
-                },
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-        }),
-      });
+                    mimeType: normalizedMimeType
+                }
+            };
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini audio transcribe API error: ${response.statusText} - ${errorText}`);
-      }
+            // Gọi API thông qua hàm bọc Retry an toàn
+            const result = await this.callWithRetry(model, {
+                contents: [{ role: "user", parts: [audioPart, { text: prompt }] }]
+            });
 
-      const result = await response.json() as any;
-      const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!responseText) {
-        return "";
-      }
-
-      return responseText.trim();
-    } catch (error: any) {
-      console.error("Error in transcribeAudio fallback:", error.message);
-      throw error;
+            const responseText = result.response.text();
+            return responseText ? responseText.trim() : "";
+        } catch (error: any) {
+            console.error("Error in transcribeAudio fallback:", error.message);
+            throw error;
+        }
     }
-  }
 }
