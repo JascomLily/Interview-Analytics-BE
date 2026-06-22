@@ -21,6 +21,7 @@ const RecordingSchema = new Schema(
         session_id: { type: Schema.Types.ObjectId, ref: "Session", required: true },
         question_id: { type: Schema.Types.ObjectId, ref: "SessionQuestion", required: true },
         user_role: { type: String, enum: ["HR", "CANDIDATE"], required: true },
+        audio_url: { type: String },
         file_url: { type: String, required: true },
         file_name: { type: String, required: true },
         transcript: { type: String, default: "" },

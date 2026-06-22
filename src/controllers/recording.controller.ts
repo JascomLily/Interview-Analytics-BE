@@ -22,6 +22,13 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
+        // Kiểm tra ObjectId hợp lệ
+        const mongoose = require("mongoose");
+        if (!mongoose.Types.ObjectId.isValid(session_id) || !mongoose.Types.ObjectId.isValid(question_id)) {
+            res.status(400).json({ message: "Định dạng session_id hoặc question_id không hợp lệ" });
+            return;
+        }
+
         // Kiểm tra Session tồn tại
         const session = await InterviewSession.findById(session_id);
         if (!session) {
@@ -49,8 +56,12 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
             file_name: req.file.filename,
             status: "PENDING",
             timestamp_metadata: {
-                started_at: started_at ? new Date(started_at) : new Date(),
-                ended_at: ended_at ? new Date(ended_at) : new Date()
+                started_at: (started_at && started_at !== "null" && started_at !== "undefined" && !isNaN(Date.parse(started_at))) 
+                    ? new Date(started_at) 
+                    : new Date(),
+                ended_at: (ended_at && ended_at !== "null" && ended_at !== "undefined" && !isNaN(Date.parse(ended_at))) 
+                    ? new Date(ended_at) 
+                    : new Date()
             }
         });
 
