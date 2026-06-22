@@ -27,6 +27,7 @@
   "homepage": "https://github.com/JascomLily/Interview-Analytics-BE#readme",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@sparticuz/chromium": "^149.0.0",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
