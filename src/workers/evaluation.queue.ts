@@ -148,13 +148,13 @@ export const evaluationWorker = new Worker(
                 }
             }
 
-            // CRITICAL CHECK 3: Chỉ cho phép đổi trạng thái thành processed nếu trạng thái hiện tại KHÔNG PHẢI là cancelled
+            // CRITICAL CHECK 3: Chỉ cho phép đổi trạng thái thành COMPLETED nếu trạng thái hiện tại KHÔNG PHẢI là cancelled
             // (Bạn nên kiểm tra cả nơi đang lắng nghe event "completed" của worker này xem có đang tự ý đổi status bừa bãi không nhé)
             const finalSession = await InterviewSession.findById(session_id);
             if (finalSession && finalSession.status !== "cancelled") {
-                finalSession.status = "processed";
+                finalSession.status = "COMPLETED";
                 await finalSession.save();
-                console.log(`[Worker] Đã cập nhật trạng thái session ${session_id} sang 'processed'.`);
+                console.log(`[Worker] Đã cập nhật trạng thái session ${session_id} sang 'COMPLETED'.`);
             } else {
                 console.log(`[Worker] Session ${session_id} đã bị cancel trước đó. Giữ nguyên trạng thái cancelled.`);
             }

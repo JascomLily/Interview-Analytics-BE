@@ -153,6 +153,19 @@ export const reEvaluateSession = async (req: Request, res: Response): Promise<vo
             return;
         }
 
+        // Kiểm tra xem phiên phỏng vấn này có ghi âm câu trả lời nào của CANDIDATE hay không
+        const candidateRecordingsCount = await Recording.countDocuments({
+            session_id: sessionId,
+            user_role: "CANDIDATE"
+        });
+
+        if (candidateRecordingsCount === 0) {
+            res.status(400).json({
+                message: "Không thể chấm điểm lại vì phiên phỏng vấn này không có bất kỳ ghi âm câu trả lời nào từ ứng viên."
+            });
+            return;
+        }
+
         // Đẩy lại vào Hàng đợi
         await evaluationQueue.add(
             "evaluate-session",
