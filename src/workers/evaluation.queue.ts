@@ -17,11 +17,8 @@ const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
     tls: env.REDIS_URL.startsWith("rediss://") ? { rejectUnauthorized: false } : undefined,
     retryStrategy(times) {
-        if (times > 3) {
-            console.warn("[Redis] Không thể kết nối Redis. Hàng đợi BullMQ tạm thời vô hiệu hoá.");
-            return null;
-        }
-        return Math.min(times * 50, 2000);
+        // Thử lại vô hạn mỗi 3 giây để tự động kết nối lại khi Redis sẵn sàng
+        return 3000;
     }
 });
 
