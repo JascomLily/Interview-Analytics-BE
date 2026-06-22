@@ -60,7 +60,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
 }`;
 
       const response = await openai.chat.completions.create({
-        model: "google/gemini-1.5-flash",
+        model: env.OPENROUTER_PDF_MODEL,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -121,7 +121,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
       const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần túy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
 
       const response = await openai.chat.completions.create({
-        model: "google/gemini-1.5-flash",
+        model: env.OPENROUTER_STT_MODEL,
         messages: [
           {
             role: "user",
