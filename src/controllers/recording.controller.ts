@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import Recording from "../models/recording.model";
 import InterviewSession from "../models/interview-session.model";
 import SessionQuestion from "../models/session-question.model";
@@ -14,6 +15,11 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
 
         if (!session_id || !question_id || !user_role) {
             res.status(400).json({ message: "Thiếu session_id, question_id hoặc user_role" });
+            return;
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(session_id) || !mongoose.Types.ObjectId.isValid(question_id)) {
+            res.status(400).json({ message: "session_id hoặc question_id không hợp lệ" });
             return;
         }
 
