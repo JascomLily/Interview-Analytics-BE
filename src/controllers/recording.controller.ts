@@ -28,12 +28,6 @@ export const uploadAudio = async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
-        // Kiểm tra ObjectId hợp lệ
-        const mongoose = require("mongoose");
-        if (!mongoose.Types.ObjectId.isValid(session_id) || !mongoose.Types.ObjectId.isValid(question_id)) {
-            res.status(400).json({ message: "Định dạng session_id hoặc question_id không hợp lệ" });
-            return;
-        }
 
         // Kiểm tra Session tồn tại
         const session = await InterviewSession.findById(session_id);
