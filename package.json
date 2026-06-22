@@ -26,7 +26,6 @@
   },
   "homepage": "https://github.com/JascomLily/Interview-Analytics-BE#readme",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
@@ -54,6 +53,7 @@
     "mongoose": "^9.6.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.10",
+    "openai": "^6.44.0",
     "pdf-parse": "^2.4.5",
     "puppeteer": "^25.1.0",
     "socket.io": "^4.8.3",

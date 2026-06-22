@@ -6,7 +6,7 @@ import SessionQuestion from "../models/session-question.model";
 import EvaluationResult from "../models/evaluation-result.model";
 import { SttService } from "../services/stt.service";
 import { evaluateCandidateAnswer } from "../services/evaluation.service";
-import { GeminiService } from "../services/gemini.service";
+import { OpenRouterService } from "../services/openrouter.service";
 import DocumentChunk from "../models/document-chunk.model";
 import InterviewSession from "../models/interview-session.model";
 import mongoose from "mongoose";
@@ -109,7 +109,7 @@ export const evaluationWorker = new Worker(
                 // --- BƯỚC RAG (Retrieval-Augmented Generation) ---
                 let ragContext = "";
                 try {
-                    const questionEmbedding = await GeminiService.generateEmbedding(questionContent);
+                    const questionEmbedding = await OpenRouterService.generateEmbedding(questionContent);
                     const pipeline: any[] = [
                         {
                             $vectorSearch: {

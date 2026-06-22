@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import KnowledgeDocument from "../models/knowledge-document.model";
 import DocumentChunk from "../models/document-chunk.model";
 import JobPosition from "../models/job-position.model";
-import { GeminiService } from "../services/gemini.service";
+import { OpenRouterService } from "../services/openrouter.service";
 
 
 const splitTextIntoChunks = (text: string, maxChunkSize = 1000, overlap = 100): string[] => {
@@ -109,7 +109,7 @@ export const processKnowledgeDocument = async (req: Request, res: Response): Pro
        
         for (let i = 0; i < textChunks.length; i++) {
             try {
-                const embedding = await GeminiService.generateEmbedding(textChunks[i]);
+                const embedding = await OpenRouterService.generateEmbedding(textChunks[i]);
                 chunksToSave.push({
                     document_id: documentRecord._id,
                     job_position_id: job_position_id, // Gắn ID để cô lập

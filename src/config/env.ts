@@ -11,7 +11,7 @@ export const env = {
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
   PYTHON_STT_URL: process.env.PYTHON_STT_URL || "http://localhost:8001",
   SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
   SMTP_PORT: process.env.SMTP_PORT || "587",

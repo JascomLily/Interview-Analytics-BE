@@ -1,7 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { env } from "../config/env";
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: env.OPENROUTER_API_KEY,
+});
 
 interface EvaluationResponse {
   score: number;
@@ -17,10 +20,6 @@ export const evaluateCandidateAnswer = async (
   ragContext: string = "" 
 ): Promise<EvaluationResponse | null> => {
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.5-flash",
-      generationConfig: { responseMimeType: "application/json" } 
-    });
 
     const prompt = `
       Bạn là một chuyên gia nhân sự và kỹ sư phần mềm đang phỏng vấn ứng viên.
@@ -42,8 +41,13 @@ export const evaluateCandidateAnswer = async (
       4. "weaknesses": Mảng (array) chứa các ý ứng viên nói sai, hiểu nhầm, hoặc còn thiếu.
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const result = await openai.chat.completions.create({
+      model: "google/gemini-1.5-flash", // Mặc định dùng Gemini 1.5 qua OpenRouter
+      response_format: { type: "json_object" },
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const responseText = result.choices[0]?.message?.content || "{}";
     
     // Parse chuỗi JSON do AI trả về thành Object
     const evaluationObj: EvaluationResponse = JSON.parse(responseText);

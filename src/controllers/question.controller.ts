@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import fs from "fs";
 import QuestionBank from "../models/question-bank.model"; // Đã đổi sang QuestionBank
-import { GeminiService } from "../services/gemini.service";
+import { OpenRouterService } from "../services/openrouter.service";
 import { cosineSimilarity } from "../utils/vector.utils";
 
 // 1. Lấy danh sách câu hỏi (Populate thêm category và skills)
@@ -38,7 +38,7 @@ export const createQuestion = async (req: Request, res: Response): Promise<void>
         // Tự động sinh embedding cho câu trả lời chuẩn
         let embedding: number[] = [];
         try {
-            embedding = await GeminiService.generateEmbedding(expected_answer);
+            embedding = await OpenRouterService.generateEmbedding(expected_answer);
         } catch (err: any) {
             console.warn("[QuestionBank] Không thể tạo embedding cho câu trả lời chuẩn:", err.message);
         }
@@ -66,7 +66,7 @@ export const updateQuestion = async (req: Request, res: Response): Promise<void>
         // Nếu có cập nhật expected_answer thì phải gen lại vector
         if (updateData.expected_answer) {
             try {
-                updateData.embedding = await GeminiService.generateEmbedding(updateData.expected_answer);
+                updateData.embedding = await OpenRouterService.generateEmbedding(updateData.expected_answer);
             } catch (err: any) {
                 console.warn("[QuestionBank] Không thể cập nhật embedding:", err.message);
             }
@@ -123,7 +123,7 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
         const fileBuffer = fs.readFileSync(req.file.path);
 
         console.log("[QuestionBank] Đang gửi PDF sang Gemini API để phân tích bộ câu hỏi...");
-        const parsedQuestions = await GeminiService.parseQuestionPDF(fileBuffer);
+        const parsedQuestions = await OpenRouterService.parseQuestionPDF(fileBuffer);
 
         if (!parsedQuestions || !Array.isArray(parsedQuestions)) {
             res.status(400).json({ message: "Gemini trả về dữ liệu không đúng cấu trúc mảng câu hỏi" });
@@ -139,7 +139,7 @@ export const importQuestionsFromPDF = async (req: Request, res: Response): Promi
                 let embedding: number[] = [];
                 try {
                     // Thử tạo vector embedding song song
-                    embedding = await GeminiService.generateEmbedding(q.expected_answer || q.content);
+                    embedding = await OpenRouterService.generateEmbedding(q.expected_answer || q.content);
                 } catch (err: any) {
                     console.warn(`[QuestionBank] Bỏ qua lỗi sinh embedding: ${err.message}`);
                     embedding = []; // Gán mảng rỗng làm fallback để lưu được câu hỏi vào DB
@@ -190,7 +190,7 @@ export const vectorSearch = async (req: Request, res: Response): Promise<void> =
         const maxResults = limit ? parseInt(limit, 10) : 5;
 
         console.log(`[Vector Search] Đang tạo embedding cho truy vấn: "${query}"`);
-        const queryEmbedding = await GeminiService.generateEmbedding(query);
+        const queryEmbedding = await OpenRouterService.generateEmbedding(query);
 
         try {
             const results = await QuestionBank.aggregate([

@@ -1,20 +1,35 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { env } from "../config/env";
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: env.OPENROUTER_API_KEY,
+});
 
 export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const base64Data = audioBuffer.toString("base64");
+    const mimeType = "audio/webm";
 
-    const result = await model.generateContent([
-        {
-            inlineData: {
-                data: audioBuffer.toString("base64"),
-                mimeType: "audio/webm" 
+    const response = await openai.chat.completions.create({
+        model: "google/gemini-1.5-flash",
+        messages: [
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "image_url",
+                        image_url: {
+                            url: `data:${mimeType};base64,${base64Data}`
+                        }
+                    },
+                    {
+                        type: "text",
+                        text: "Hãy chuyển đoạn âm thanh tiếng Việt này thành văn bản."
+                    }
+                ]
             }
-        },
-        "Hãy chuyển đoạn âm thanh tiếng Việt này thành văn bản."
-    ]);
+        ]
+    });
 
-    return result.response.text();
+    return response.choices[0]?.message?.content || "";
 };
