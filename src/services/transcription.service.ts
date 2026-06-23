@@ -12,21 +12,28 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
         if (isWhisper) {
             console.log(`[Realtime STT] Sử dụng endpoint audio/transcriptions cho model: ${modelName}`);
             
-            const openai = new OpenAI({
-                baseURL: "https://openrouter.ai/api/v1",
-                apiKey: env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash",
+            const response = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash"}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model: modelName,
+                    input_audio: {
+                        data: base64Data,
+                        format: format,
+                    },
+                }),
             });
 
-            // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
-            const { toFile } = require("openai");
-            const file = await toFile(audioBuffer, `audio.${format}`, { type: `audio/${format}` });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`OpenRouter STT API returned ${response.status}: ${errorText}`);
+            }
 
-            const response = await openai.audio.transcriptions.create({
-                file: file,
-                model: modelName,
-            });
-
-            return response.text || "";
+            const data = await response.json() as { text?: string };
+            return data.text || "";
         } else {
             console.log(`[Realtime STT] Sử dụng chat/completions input_audio cho model: ${modelName}`);
             
