@@ -142,7 +142,7 @@ export const getDashboardReports = async (req: Request, res: Response): Promise<
     }
 };
 
-// Yêu cầu chấm điểm lại toàn bộ (Re-evaluate Versioning)
+// Yêu cầu chấm điểm lại toàn bộ (Re-evaluate Versioning & Re-transcribe)
 export const reEvaluateSession = async (req: Request, res: Response): Promise<void> => {
     try {
         const { sessionId } = req.params;
@@ -166,7 +166,20 @@ export const reEvaluateSession = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        // Đẩy lại vào Hàng đợi
+        // 1. Reset trạng thái ghi âm của phiên phỏng vấn về PENDING và xóa transcript cũ để buộc bóc băng (STT) lại từ đầu
+        await Recording.updateMany(
+            { session_id: sessionId },
+            { $set: { status: "PENDING", transcript: null } }
+        );
+
+        // 2. Xóa các kết quả chấm điểm cũ để ghi nhận kết quả mới sạch sẽ
+        await EvaluationResult.deleteMany({ session_id: sessionId });
+
+        // 3. Đổi trạng thái phiên phỏng vấn về IN_PROGRESS để hiển thị tiến độ trên giao diện
+        session.status = "IN_PROGRESS";
+        await session.save();
+
+        // 4. Đẩy lại vào Hàng đợi xử lý
         await evaluationQueue.add(
             "evaluate-session",
             { session_id: sessionId, is_reevaluation: true },
@@ -177,7 +190,7 @@ export const reEvaluateSession = async (req: Request, res: Response): Promise<vo
         );
 
         res.status(200).json({
-            message: "Đã yêu cầu AI chấm điểm lại phiên này. Vui lòng quay lại sau ít phút."
+            message: "Đã gửi yêu cầu bóc băng và chấm điểm lại cho toàn bộ phiên này. Vui lòng đợi trong giây lát."
         });
     } catch (error) {
         console.error("[Report Controller] Lỗi khi yêu cầu chấm điểm lại:", error);

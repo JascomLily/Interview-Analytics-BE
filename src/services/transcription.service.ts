@@ -1,35 +1,77 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
 
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: env.OPENROUTER_API_KEY,
-});
-
 export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> => {
-    const base64Data = audioBuffer.toString("base64");
-    const mimeType = "audio/webm";
+    try {
+        const modelName = env.OPENROUTER_STT_MODEL || "openai/whisper-large-v3";
+        const base64Data = audioBuffer.toString("base64");
+        const format = "webm"; // Giao diện ghi âm qua socket gửi file định dạng webm
 
-    const response = await openai.chat.completions.create({
-        model: env.OPENROUTER_STT_MODEL,
-        messages: [
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "image_url",
-                        image_url: {
-                            url: `data:${mimeType};base64,${base64Data}`
-                        }
-                    },
-                    {
-                        type: "text",
-                        text: "Hãy chuyển đoạn âm thanh tiếng Việt này thành văn bản."
-                    }
-                ]
+        const isWhisper = modelName.toLowerCase().includes("whisper") || modelName.toLowerCase().includes("transcribe");
+
+        if (isWhisper) {
+            console.log(`[Realtime STT] Sử dụng endpoint audio/transcriptions cho model: ${modelName}`);
+            
+            if (!env.OPENROUTER_API_KEY) {
+                throw new Error("OPENROUTER_API_KEY is not configured.");
             }
-        ]
-    });
 
-    return response.choices[0]?.message?.content || "";
+            const response = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: modelName,
+                    input_audio: {
+                        data: base64Data,
+                        format: format
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`OpenRouter STT API returned ${response.status}: ${errText}`);
+            }
+
+            const data = await response.json() as any;
+            return data.text || "";
+        } else {
+            console.log(`[Realtime STT] Sử dụng chat/completions input_audio cho model: ${modelName}`);
+            
+            const openai = new OpenAI({
+                baseURL: "https://openrouter.ai/api/v1",
+                apiKey: env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash",
+            });
+            
+            const response = await openai.chat.completions.create({
+                model: modelName,
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "text",
+                                text: "Hãy chuyển đoạn âm thanh tiếng Việt này thành văn bản."
+                            },
+                            {
+                                type: "input_audio",
+                                input_audio: {
+                                    data: base64Data,
+                                    format: format
+                                }
+                            }
+                        ]
+                    }
+                ] as any
+            });
+
+            return response.choices[0]?.message?.content || "";
+        }
+    } catch (error: any) {
+        console.error("[Realtime STT] Lỗi bóc băng chunk âm thanh:", error.message);
+        return "";
+    }
 };

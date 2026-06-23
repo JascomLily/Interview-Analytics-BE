@@ -3,7 +3,7 @@ import { env } from "../config/env";
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: env.OPENROUTER_API_KEY,
+  apiKey: env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash",
 });
 
 interface EvaluationResponse {

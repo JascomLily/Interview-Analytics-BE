@@ -98,57 +98,87 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
     }
   }
 
-  /**
-   * Bóc băng âm thanh (STT) sử dụng Google Gemini 1.5 Flash (thông qua OpenRouter).
-   */
   public static async transcribeAudio(fileBuffer: Buffer, mimeType: string): Promise<string> {
     try {
-      const openai = this.getClient();
+      const modelName = env.OPENROUTER_STT_MODEL || "openai/whisper-large-v3";
       const base64Data = fileBuffer.toString("base64");
 
-      // Chuẩn hóa mimeType
-      let normalizedMimeType = mimeType;
+      // Chuẩn hóa format
+      let format = "webm";
       if (mimeType === "audio/webm" || mimeType.includes("webm")) {
-        normalizedMimeType = "audio/webm";
+        format = "webm";
       } else if (mimeType === "audio/wav" || mimeType.includes("wav")) {
-        normalizedMimeType = "audio/wav";
+        format = "wav";
       } else if (mimeType === "audio/mpeg" || mimeType.includes("mp3")) {
-        normalizedMimeType = "audio/mp3";
+        format = "mp3";
       } else if (mimeType === "audio/ogg" || mimeType.includes("ogg")) {
-        normalizedMimeType = "audio/ogg";
+        format = "ogg";
       }
 
-      const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần túy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
+      const isWhisper = modelName.toLowerCase().includes("whisper") || modelName.toLowerCase().includes("transcribe");
 
-      const response = await openai.chat.completions.create({
-        model: env.OPENROUTER_STT_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${normalizedMimeType};base64,${base64Data}`,
-                },
-              },
-              {
-                type: "text",
-                text: prompt,
-              },
-            ],
+      if (isWhisper) {
+        console.log(`[OpenRouter STT] Sử dụng endpoint audio/transcriptions cho model: ${modelName}`);
+        
+        if (!env.OPENROUTER_API_KEY) {
+          throw new Error("OPENROUTER_API_KEY is not configured.");
+        }
+
+        const response = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
           },
-        ],
-      });
+          body: JSON.stringify({
+            model: modelName,
+            input_audio: {
+              data: base64Data,
+              format: format
+            }
+          })
+        });
 
-      const responseText = response.choices[0]?.message?.content;
-      if (!responseText) {
-        return "";
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`OpenRouter STT API returned ${response.status}: ${errText}`);
+        }
+
+        const data = await response.json() as any;
+        return data.text || "";
+      } else {
+        console.log(`[OpenRouter STT] Sử dụng chat/completions input_audio cho model: ${modelName}`);
+        const openai = this.getClient();
+        
+        const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần túy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
+        
+        const response = await openai.chat.completions.create({
+          model: modelName,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: prompt
+                },
+                {
+                  type: "input_audio",
+                  input_audio: {
+                    data: base64Data,
+                    format: format
+                  }
+                }
+              ]
+            }
+          ] as any
+        });
+
+        const responseText = response.choices[0]?.message?.content;
+        return responseText ? responseText.trim() : "";
       }
-
-      return responseText.trim();
     } catch (error: any) {
-      console.error("Error in transcribeAudio fallback (OpenRouter):", error.message);
+      console.error("Error in transcribeAudio (OpenRouter):", error.message);
       throw error;
     }
   }
