@@ -120,32 +120,18 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
       if (isWhisper) {
         console.log(`[OpenRouter STT] Sử dụng endpoint audio/transcriptions cho model: ${modelName}`);
         
-        if (!env.OPENROUTER_API_KEY) {
-          throw new Error("OPENROUTER_API_KEY is not configured.");
-        }
+        const openai = this.getClient();
+        
+        // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
+        const { toFile } = require("openai");
+        const file = await toFile(fileBuffer, `audio.${format}`, { type: `audio/${format}` });
 
-        const response = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
+        const response = await openai.audio.transcriptions.create({
+            file: file,
             model: modelName,
-            input_audio: {
-              data: base64Data,
-              format: format
-            }
-          })
         });
 
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`OpenRouter STT API returned ${response.status}: ${errText}`);
-        }
-
-        const data = await response.json() as any;
-        return data.text || "";
+        return response.text || "";
       } else {
         console.log(`[OpenRouter STT] Sử dụng chat/completions input_audio cho model: ${modelName}`);
         const openai = this.getClient();
