@@ -15,6 +15,7 @@ export const env = {
   OPENROUTER_EVALUATION_MODEL: process.env.OPENROUTER_EVALUATION_MODEL || "anthropic/claude-opus-4.8-fast",
   OPENROUTER_PDF_MODEL: process.env.OPENROUTER_PDF_MODEL || "anthropic/claude-opus-4.8-fast",
   OPENROUTER_STT_MODEL: process.env.OPENROUTER_STT_MODEL || "openai/gpt-5.5-pro",
+  GROQ_API_KEY: process.env.GROQ_API_KEY || "",
   PYTHON_STT_URL: process.env.PYTHON_STT_URL || "http://localhost:8001",
   SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
   SMTP_PORT: process.env.SMTP_PORT || "587",
