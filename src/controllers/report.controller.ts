@@ -175,8 +175,8 @@ export const reEvaluateSession = async (req: Request, res: Response): Promise<vo
         // 2. Xóa các kết quả chấm điểm cũ để ghi nhận kết quả mới sạch sẽ
         await EvaluationResult.deleteMany({ session_id: sessionId });
 
-        // 3. Đổi trạng thái phiên phỏng vấn về IN_PROGRESS để hiển thị tiến độ trên giao diện
-        session.status = "IN_PROGRESS";
+        // 3. Đổi trạng thái phiên phỏng vấn về ONGOING để hiển thị tiến độ trên giao diện và tránh lỗi enum Schema Mongoose
+        session.status = "ONGOING";
         await session.save();
 
         // 4. Đẩy lại vào Hàng đợi xử lý
