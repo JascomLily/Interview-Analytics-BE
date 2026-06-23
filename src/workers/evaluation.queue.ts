@@ -11,6 +11,7 @@ import DocumentChunk from "../models/document-chunk.model";
 import InterviewSession from "../models/interview-session.model";
 import mongoose from "mongoose";
 import path from "path";
+import fs from "fs";
 
 // 1. Cấu hình Redis connection
 const connection = new Redis(env.REDIS_URL, {
@@ -71,6 +72,31 @@ export const evaluationWorker = new Worker(
                 if (!rec.transcript || rec.transcript.startsWith("[Bóc băng thất bại]")) {
                     try {
                         const localPath = path.join(process.cwd(), 'uploads', 'recordings', rec.file_name);
+                        
+                        // Đảm bảo thư mục lưu trữ tồn tại
+                        const dir = path.dirname(localPath);
+                        if (!fs.existsSync(dir)) {
+                            fs.mkdirSync(dir, { recursive: true });
+                        }
+
+                        // Nếu không tìm thấy file ghi âm cục bộ (do tách biệt Web/Worker hoặc đĩa tạm thời của Render bị xoá), tiến hành tải về qua URL công khai
+                        if (!fs.existsSync(localPath) && (rec.audio_url || rec.file_url)) {
+                            const downloadUrl = rec.audio_url || rec.file_url;
+                            console.log(`[Worker] Không tìm thấy file cục bộ. Tiến hành tải từ: ${downloadUrl}`);
+                            try {
+                                const response = await fetch(downloadUrl);
+                                if (!response.ok) {
+                                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                }
+                                const arrayBuffer = await response.arrayBuffer();
+                                fs.writeFileSync(localPath, Buffer.from(arrayBuffer));
+                                console.log(`[Worker] Tải file ghi âm thành công về local: ${localPath}`);
+                            } catch (downloadErr: any) {
+                                console.error(`[Worker] Lỗi tải file ghi âm từ URL:`, downloadErr.message);
+                                throw new Error(`Không tìm thấy file cục bộ và tải từ URL thất bại: ${downloadErr.message}`);
+                            }
+                        }
+
                         const transcript = await SttService.transcribe(localPath, "audio/webm");
                         rec.transcript = transcript || "[Bóc băng thất bại]";
                         rec.status = "COMPLETED";
