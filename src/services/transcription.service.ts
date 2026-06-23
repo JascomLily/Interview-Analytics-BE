@@ -11,10 +11,10 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
 
         if (isWhisper) {
             console.log(`[Realtime STT] Sử dụng endpoint audio/transcriptions của Groq cho model: whisper-large-v3-turbo`);
-            
+
             const openai = new OpenAI({
-                baseURL: "https://api.groq.com/openai/v1",
-                apiKey: env.GROQ_API_KEY || "dummy-key-to-prevent-crash",
+                baseURL: "https://openrouter.ai/api/v1",
+                apiKey: env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash",
             });
 
             // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
@@ -23,18 +23,18 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
 
             const response = await openai.audio.transcriptions.create({
                 file: file,
-                model: "whisper-large-v3-turbo", // Model Whisper cực nhanh của Groq
+                model: modelName,
             });
 
             return response.text || "";
         } else {
             console.log(`[Realtime STT] Sử dụng chat/completions input_audio cho model: ${modelName}`);
-            
+
             const openai = new OpenAI({
                 baseURL: "https://openrouter.ai/api/v1",
                 apiKey: env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash",
             });
-            
+
             const response = await openai.chat.completions.create({
                 model: modelName,
                 messages: [
