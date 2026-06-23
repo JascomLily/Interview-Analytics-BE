@@ -115,57 +115,23 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
         format = "ogg";
       }
 
-      const isWhisper = modelName.toLowerCase().includes("whisper") || modelName.toLowerCase().includes("transcribe");
+      console.log(`[Groq STT] Sử dụng endpoint audio/transcriptions của Groq cho model: whisper-large-v3-turbo`);
 
-      if (isWhisper) {
-        console.log(`[Groq STT] Sử dụng endpoint audio/transcriptions của Groq cho model: whisper-large-v3-turbo`);
+      const openai = new OpenAI({
+          baseURL: "https://api.groq.com/openai/v1",
+          apiKey: env.GROQ_API_KEY || "dummy-key",
+      });
 
-        const openai = new OpenAI({
-            baseURL: "https://api.groq.com/openai/v1",
-            apiKey: env.GROQ_API_KEY || "dummy-key",
-        });
+      // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
+      const { toFile } = require("openai");
+      const file = await toFile(fileBuffer, `audio.${format}`, { type: `audio/${format}` });
 
-        // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
-        const { toFile } = require("openai");
-        const file = await toFile(fileBuffer, `audio.${format}`, { type: `audio/${format}` });
+      const response = await openai.audio.transcriptions.create({
+        file: file,
+        model: "whisper-large-v3-turbo", // Khóa cứng model của Groq
+      });
 
-        const response = await openai.audio.transcriptions.create({
-          file: file,
-          model: "whisper-large-v3-turbo", // Khóa cứng model của Groq
-        });
-
-        return response.text || "";
-      } else {
-        console.log(`[OpenRouter STT] Sử dụng chat/completions input_audio cho model: ${modelName}`);
-        const openai = this.getClient();
-
-        const prompt = "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần túy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.";
-
-        const response = await openai.chat.completions.create({
-          model: modelName,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: prompt
-                },
-                {
-                  type: "input_audio",
-                  input_audio: {
-                    data: base64Data,
-                    format: format
-                  }
-                }
-              ]
-            }
-          ] as any
-        });
-
-        const responseText = response.choices[0]?.message?.content;
-        return responseText ? responseText.trim() : "";
-      }
+      return response.text || "";
     } catch (error: any) {
       console.error("Error in transcribeAudio (OpenRouter):", error.message);
       throw error;
