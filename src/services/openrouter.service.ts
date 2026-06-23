@@ -120,7 +120,10 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
       if (isWhisper) {
         console.log(`[Groq STT] Sử dụng endpoint audio/transcriptions của Groq cho model: whisper-large-v3-turbo`);
 
-        const openai = this.getClient();
+        const openai = new OpenAI({
+            baseURL: "https://api.groq.com/openai/v1",
+            apiKey: env.GROQ_API_KEY || "dummy-key",
+        });
 
         // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
         const { toFile } = require("openai");
@@ -128,7 +131,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
 
         const response = await openai.audio.transcriptions.create({
           file: file,
-          model: modelName,
+          model: "whisper-large-v3-turbo", // Khóa cứng model của Groq
         });
 
         return response.text || "";
