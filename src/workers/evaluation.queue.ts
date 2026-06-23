@@ -68,7 +68,7 @@ export const evaluationWorker = new Worker(
                 }
 
                 // 1. Dịch STT cho từng đoạn
-                if (!rec.transcript) {
+                if (!rec.transcript || rec.transcript.startsWith("[Bóc băng thất bại]")) {
                     try {
                         const localPath = path.join(process.cwd(), 'uploads', 'recordings', rec.file_name);
                         const transcript = await SttService.transcribe(localPath, "audio/webm");
@@ -76,7 +76,7 @@ export const evaluationWorker = new Worker(
                         rec.status = "COMPLETED";
                     } catch (sttErr: any) {
                         console.error(`[Worker] Lỗi bóc băng cho recording ${rec._id}:`, sttErr.message);
-                        rec.transcript = "[Bóc băng thất bại]";
+                        rec.transcript = `[Bóc băng thất bại] Chi tiết: ${sttErr.message || "Lỗi không xác định"}`;
                         rec.status = "FAILED";
                     }
                     await rec.save();
