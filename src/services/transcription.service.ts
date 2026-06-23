@@ -21,6 +21,9 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
         const response = await openai.audio.transcriptions.create({
             file: file,
             model: "whisper-large-v3-turbo", // Khóa cứng model của Groq
+            language: "vi",
+            temperature: 0.0,
+            prompt: "Đây là câu trả lời phỏng vấn bằng tiếng Việt của ứng viên:",
         });
 
         return response.text || "";
