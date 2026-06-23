@@ -27,7 +27,11 @@ const server = http.createServer(app);
 // Cấu hình trust proxy để Render/Heroku nhận diện đúng HTTPS thay vì HTTP
 app.set("trust proxy", 1);
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ 
+    origin: true, 
+    credentials: true,
+    exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"]
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
