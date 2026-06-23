@@ -1,18 +1,8 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
-import { OpenRouterService } from "./openrouter.service";
 
 export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> => {
     try {
-        if (process.env.GEMINI_API_KEY) {
-            try {
-                console.log("[Realtime STT] Phát hiện GEMINI_API_KEY. Gọi trực tiếp Google Gemini API...");
-                return await OpenRouterService.transcribeWithGeminiDirect(audioBuffer, "audio/webm");
-            } catch (geminiErr: any) {
-                console.warn("[Realtime STT] Gọi Gemini trực tiếp thất bại, chuyển sang OpenRouter:", geminiErr.message);
-            }
-        }
-
         const modelName = env.OPENROUTER_STT_MODEL || "openai/whisper-large-v3";
         const base64Data = audioBuffer.toString("base64");
         const format = "webm"; // Giao diện ghi âm qua socket gửi file định dạng webm
