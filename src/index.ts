@@ -91,6 +91,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     });
 });
 
+server.timeout = 2700000; // 45 minutes request timeout
 server.listen(env.PORT, () => {
     console.log(`[🚀] Server is running on port ${env.PORT}`);
     console.log(`[🌍] Environment: ${process.env.NODE_ENV || 'development'}`);
