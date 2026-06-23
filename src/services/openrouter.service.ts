@@ -98,8 +98,87 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
     }
   }
 
+  public static async transcribeWithGeminiDirect(fileBuffer: Buffer, mimeType: string): Promise<string> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not configured in environment variables.");
+    }
+
+    const base64Data = fileBuffer.toString("base64");
+    let normalizedMimeType = mimeType;
+    if (mimeType.includes("webm")) {
+      normalizedMimeType = "audio/webm";
+    } else if (mimeType.includes("wav")) {
+      normalizedMimeType = "audio/wav";
+    } else if (mimeType.includes("mp3") || mimeType.includes("mpeg")) {
+      normalizedMimeType = "audio/mp3";
+    } else if (mimeType.includes("ogg")) {
+      normalizedMimeType = "audio/ogg";
+    }
+
+    const models = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash"];
+    let lastError: any = null;
+
+    for (const model of models) {
+      try {
+        console.log(`[Gemini Direct STT] Đang thử bóc băng bằng model Google API: ${model}...`);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: normalizedMimeType,
+                      data: base64Data,
+                    },
+                  },
+                  {
+                    text: "Hãy bóc băng (Speech-to-Text) đoạn ghi âm này bằng tiếng Việt. Chỉ trả về kết quả transcription dạng chữ viết thuần túy (văn bản trơn), không giải thích hay thêm bớt bất kỳ bình luận nào.",
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Google API returned ${response.status}: ${errText}`);
+        }
+
+        const resData = await response.json() as any;
+        const text = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          console.log(`[Gemini Direct STT] Bóc băng thành công với model ${model}`);
+          return text.trim();
+        }
+      } catch (err: any) {
+        console.warn(`[Gemini Direct STT] Model ${model} thất bại: ${err.message}`);
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error("Tất cả các model Gemini đều thất bại.");
+  }
+
   public static async transcribeAudio(fileBuffer: Buffer, mimeType: string): Promise<string> {
     try {
+      // Ưu tiên gọi trực tiếp Google Gemini API nếu có GEMINI_API_KEY để bóc băng miễn phí không lo 402 balance của OpenRouter
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          console.log("[STT] Phát hiện GEMINI_API_KEY. Tiến hành gọi trực tiếp Google Gemini API để bóc băng miễn phí...");
+          return await this.transcribeWithGeminiDirect(fileBuffer, mimeType);
+        } catch (geminiErr: any) {
+          console.warn("[STT] Bóc băng trực tiếp qua Gemini API thất bại, chuyển sang OpenRouter:", geminiErr.message);
+        }
+      }
+
       const modelName = env.OPENROUTER_STT_MODEL || "openai/whisper-large-v3";
       const base64Data = fileBuffer.toString("base64");
 
