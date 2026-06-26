@@ -62,6 +62,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
       const response = await openai.chat.completions.create({
         model: env.OPENROUTER_PDF_MODEL,
         response_format: { type: "json_object" },
+        max_tokens: 2500, // Cập nhật max_tokens để tránh lỗi 402 khi OpenRouter estimate 65536 tokens
         messages: [
           {
             role: "user",
