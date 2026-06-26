@@ -12,6 +12,7 @@ export const env = {
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   OPENROUTER_EVALUATION_MODEL: process.env.OPENROUTER_EVALUATION_MODEL || "google/gemini-2.0-flash-exp:free",
   OPENROUTER_PDF_MODEL: process.env.OPENROUTER_PDF_MODEL || "google/gemini-2.0-flash-exp:free",
   OPENROUTER_STT_MODEL: process.env.OPENROUTER_STT_MODEL || "google/gemini-2.0-flash-exp:free",

@@ -42,7 +42,10 @@ export class OpenRouterService {
    */
   public static async parseQuestionPDF(fileBuffer: Buffer): Promise<any[]> {
     try {
-      const openai = this.getClient();
+      if (!env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured in environment variables. Please add it to your .env file.");
+      }
+
       const base64Data = fileBuffer.toString("base64");
       const mimeType = "application/pdf";
 
@@ -59,32 +62,44 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
   ]
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: env.OPENROUTER_PDF_MODEL,
-        response_format: { type: "json_object" },
-        max_tokens: 2500, // Cập nhật max_tokens để tránh lỗi 402 khi OpenRouter estimate 65536 tokens
-        messages: [
+      // Gọi trực tiếp API Native của Google (Bypass OpenRouter)
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`;
+      
+      const requestBody = {
+        contents: [
           {
-            role: "user",
-            content: [
+            parts: [
+              { text: prompt },
               {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Data}`,
-                },
-              },
-              {
-                type: "text",
-                text: prompt,
-              },
-            ],
-          },
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }
         ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
       });
 
-      const responseText = response.choices[0]?.message?.content;
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Google Gemini API Error: ${response.status} - ${errorData}`);
+      }
+
+      const responseData = await response.json();
+      const responseText = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+
       if (!responseText) {
-        throw new Error("Empty response from OpenRouter PDF parser");
+        throw new Error("Empty response from Google Gemini PDF parser");
       }
 
       const parsedJSON = JSON.parse(responseText.trim());
@@ -94,7 +109,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
 
       return parsedJSON.questions;
     } catch (error: any) {
-      console.error("Error in parseQuestionPDF (OpenRouter):", error.message);
+      console.error("Error in parseQuestionPDF (Native Gemini):", error.message);
       throw error;
     }
   }
