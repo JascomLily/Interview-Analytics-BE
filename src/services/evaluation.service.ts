@@ -1,10 +1,4 @@
-import OpenAI from "openai";
 import { env } from "../config/env";
-
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: env.OPENROUTER_API_KEY || "dummy-key-to-prevent-crash",
-});
 
 interface EvaluationResponse {
   score: number;
@@ -20,6 +14,10 @@ export const evaluateCandidateAnswer = async (
   ragContext: string = "" 
 ): Promise<EvaluationResponse | null> => {
   try {
+    if (!env.GEMINI_API_KEY) {
+      console.error("[Evaluation Service] Lỗi: Chưa cấu hình GEMINI_API_KEY");
+      return null;
+    }
 
     const prompt = `
       Bạn là một chuyên gia nhân sự và kỹ sư phần mềm đang phỏng vấn ứng viên.
@@ -41,16 +39,32 @@ export const evaluateCandidateAnswer = async (
       4. "weaknesses": Mảng (array) chứa các ý ứng viên nói sai, hiểu nhầm, hoặc còn thiếu.
     `;
 
-    const result = await openai.chat.completions.create({
-      model: env.OPENROUTER_EVALUATION_MODEL, // Lấy model từ biến môi trường
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }]
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+    const requestBody = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.2
+      }
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
     });
 
-    const responseText = result.choices[0]?.message?.content || "{}";
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("[Evaluation Service] Lỗi Google API:", err);
+      return null;
+    }
+
+    const responseData = await response.json();
+    const responseText = responseData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     
     // Parse chuỗi JSON do AI trả về thành Object
-    const evaluationObj: EvaluationResponse = JSON.parse(responseText);
+    const evaluationObj: EvaluationResponse = JSON.parse(responseText.trim());
     
     return evaluationObj;
   } catch (error) {

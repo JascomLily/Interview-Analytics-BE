@@ -12,27 +12,42 @@ export class OpenRouterService {
     });
   }
 
-  /**
-   * Tạo vector embedding 768 chiều.
-   * Sử dụng openai/text-embedding-3-small và ép kích thước về 768 để tương thích DB hiện tại.
-   */
   public static async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const openai = this.getClient();
-      // Note: OpenRouter currently passes embeddings requests to OpenAI models
-      const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: text,
-        dimensions: 768, // Ép về 768 chiều cho khớp với DB
-      });
-
-      if (!response.data || !response.data[0] || !response.data[0].embedding) {
-        throw new Error("Invalid embedding response structure from OpenRouter");
+      if (!env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured.");
       }
 
-      return response.data[0].embedding;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${env.GEMINI_API_KEY}`;
+      const requestBody = {
+        model: "models/text-embedding-004",
+        content: {
+          parts: [{ text: text }]
+        }
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Google Embedding API Error: ${err}`);
+      }
+
+      const responseData = await response.json();
+      const embedding = responseData.embedding?.values;
+
+      if (!embedding || !Array.isArray(embedding)) {
+        throw new Error("Invalid embedding response structure from Google Gemini");
+      }
+
+      // Google's text-embedding-004 outputs 768 dimensions by default, which perfectly matches our DB
+      return embedding;
     } catch (error: any) {
-      console.error("Error in generateEmbedding (OpenRouter):", error.message);
+      console.error("Error in generateEmbedding (Native Gemini):", error.message);
       throw error;
     }
   }
