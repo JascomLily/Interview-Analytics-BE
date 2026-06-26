@@ -7,26 +7,49 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
         const base64Data = audioBuffer.toString("base64");
         const format = "webm"; // Giao diện ghi âm qua socket gửi file định dạng webm
 
-        console.log(`[Realtime STT] Sử dụng endpoint audio/transcriptions của Groq cho model: whisper-large-v3-turbo`);
+        if (!env.GEMINI_API_KEY) {
+            console.error("[Realtime STT] Lỗi: Chưa cấu hình GEMINI_API_KEY");
+            return "";
+        }
 
-        const openai = new OpenAI({
-            baseURL: "https://api.groq.com/openai/v1",
-            apiKey: env.GROQ_API_KEY || "dummy-key-to-prevent-crash",
+        console.log(`[Realtime STT] Sử dụng endpoint Native của Google Gemini 1.5 Flash`);
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+        const prompt = "Hãy bóc băng (Speech-to-Text) đoạn âm thanh này bằng tiếng Việt. Chỉ trả về chính xác văn bản ứng viên đã nói, không bình luận, không giải thích. Nếu im lặng hoặc không nghe rõ, hãy trả về chuỗi rỗng.";
+        
+        const requestBody = {
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: `audio/${format}`,
+                            data: base64Data
+                        }
+                    }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.0
+            }
+        };
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
         });
 
-        // Sử dụng SDK openai và toFile chuẩn để gửi multipart/form-data
-        const { toFile } = require("openai");
-        const file = await toFile(audioBuffer, `audio.${format}`, { type: `audio/${format}` });
+        if (!response.ok) {
+            const err = await response.text();
+            console.error("[Realtime STT] Google API Error:", err);
+            return "";
+        }
 
-        const response = await openai.audio.transcriptions.create({
-            file: file,
-            model: "whisper-large-v3-turbo", // Khóa cứng model của Groq
-            language: "vi",
-            temperature: 0.0,
-            prompt: "Đây là câu trả lời phỏng vấn bằng tiếng Việt của ứng viên:",
-        });
-
-        return response.text || "";
+        const responseData = await response.json();
+        const responseText = responseData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        return responseText.trim();
     } catch (error: any) {
         console.error("[Realtime STT] Lỗi bóc băng chunk âm thanh:", error.message);
         return "";
