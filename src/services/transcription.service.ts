@@ -12,9 +12,9 @@ export const processAudioChunk = async (audioBuffer: Buffer): Promise<string> =>
             return "";
         }
 
-        console.log(`[Realtime STT] Sử dụng endpoint Native của Google Gemini 2.5 Flash`);
+        console.log(`[Realtime STT] Sử dụng endpoint Native của Google Gemini 1.5 Flash`);
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
         const prompt = "Hãy bóc băng (Speech-to-Text) đoạn âm thanh này bằng tiếng Việt. Chỉ trả về chính xác văn bản ứng viên đã nói, không bình luận, không giải thích. Nếu im lặng hoặc không nghe rõ, hãy trả về chuỗi rỗng.";
 
         const requestBody = {
