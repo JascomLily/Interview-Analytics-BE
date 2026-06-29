@@ -53,7 +53,7 @@ export class OpenRouterService {
   }
 
   /**
-   * Trích xuất câu hỏi phỏng vấn từ PDF bằng Google Gemini 1.5 Flash (thông qua OpenRouter)
+   * Trích xuất câu hỏi phỏng vấn từ PDF bằng Google Gemini 2.5 Flash (thông qua OpenRouter)
    */
   public static async parseQuestionPDF(fileBuffer: Buffer): Promise<any[]> {
     try {
@@ -78,7 +78,7 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
 }`;
 
       // Gọi trực tiếp API Native của Google (Bypass OpenRouter)
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
       
       const requestBody = {
         contents: [
@@ -150,9 +150,9 @@ Hãy trả về một JSON object chứa mảng các câu hỏi phỏng vấn th
         throw new Error("GEMINI_API_KEY is not configured.");
       }
 
-      console.log(`[Native STT] Sử dụng endpoint Native của Google Gemini 1.5 Flash cho bóc băng`);
+      console.log(`[Native STT] Sử dụng endpoint Native của Google Gemini 2.5 Flash cho bóc băng`);
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
       const prompt = "Hãy bóc băng (Speech-to-Text) đoạn âm thanh này bằng tiếng Việt. Chỉ trả về chính xác văn bản ứng viên đã nói, không bình luận, không giải thích. Nếu im lặng hoặc không nghe rõ, hãy trả về chuỗi rỗng.";
       
       const requestBody = {
