@@ -13,6 +13,9 @@ import mongoose from "mongoose";
 import path from "path";
 import fs from "fs";
 
+// Thêm hàm delay để chống quá tải (Rate limit)
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // 1. Cấu hình Redis connection
 const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
@@ -100,6 +103,10 @@ export const evaluationWorker = new Worker(
                         const transcript = await SttService.transcribe(localPath, "audio/webm");
                         rec.transcript = transcript || "[Bóc băng thất bại]";
                         rec.status = "COMPLETED";
+
+                        // Nghỉ 15 giây để tránh lỗi 429 Quota Exceeded của gói Free
+                        console.log(`[Rate Limit] Đã bóc băng xong 1 đoạn. Nghỉ 15 giây...`);
+                        await delay(15000);
                     } catch (sttErr: any) {
                         console.error(`[Worker] Lỗi bóc băng cho recording ${rec._id}:`, sttErr.message);
                         rec.transcript = `[Bóc băng thất bại] Chi tiết: ${sttErr.message || "Lỗi không xác định"}`;
@@ -178,6 +185,10 @@ export const evaluationWorker = new Worker(
                             version: is_reevaluation ? 2 : 1
                         });
                         console.log(`[Worker] Chấm điểm thành công cho câu hỏi ${qId}: ${evalResult.score}/100`);
+
+                        // Nghỉ 15 giây để tránh lỗi 429 Quota Exceeded của gói Free
+                        console.log(`[Rate Limit] Đã chấm điểm xong 1 câu. Nghỉ 15 giây...`);
+                        await delay(15000);
                     }
                 } catch (evalErr: any) {
                     console.error(`[Worker] Lỗi chấm điểm câu hỏi ${qId}:`, evalErr.message);
@@ -204,7 +215,7 @@ export const evaluationWorker = new Worker(
     },
     {
         connection: connection as any,
-        concurrency: 5
+        concurrency: 1
     }
 );
 
